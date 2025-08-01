@@ -29,7 +29,6 @@ const rtcConfiguration = {
   iceCandidatePoolSize: 10
 };
 
-
 const Videocall = () => {
   const myVideoRef = useRef();
   const userVideoRef = useRef();
@@ -38,6 +37,7 @@ const Videocall = () => {
   const navigate = useNavigate();
   const [timer] = useState(0);
   const timerInterval = useRef();
+  const iceCandidateQueue = useRef([]); // Queue to store candidates that arrive early
 
   const {
     user,
@@ -53,55 +53,73 @@ const Videocall = () => {
     startCallDurationTimer,
   } = userauthstore();
 
+  // Function to process queued ICE candidates
+  const processIceCandidateQueue = async () => {
+    const pc = pcRef.current;
+    if (!pc || pc.signalingState === 'closed') return;
+
+    // Process any queued ICE candidates
+    while (iceCandidateQueue.current.length > 0) {
+      const candidate = iceCandidateQueue.current.shift();
+      try {
+        await pc.addIceCandidate(new RTCIceCandidate(candidate));
+        console.log("Successfully added queued ICE candidate");
+      } catch (error) {
+        console.error("Error adding queued ICE candidate:", error);
+      }
+    }
+  };
+
   useEffect(() => {
     if (!user || !socket) {
       return;
     }
+    
     let isCaller = call && call.type === 'outgoing';
     let remoteUserId = isCaller ? selecteduser._id : (call && call.user && call.user._id);
+    
     if (!remoteUserId) {
       return;
     }
 
+    // Clean up any previous connection
     if (pcRef.current) {
       pcRef.current.close();
       pcRef.current = null;
     }
+    
+    // Clear the ICE candidate queue
+    iceCandidateQueue.current = [];
+
+    // Create new RTCPeerConnection
     const pc = new RTCPeerConnection(rtcConfiguration);
     pcRef.current = pc;
 
-    if (isCaller) {
-      navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then((stream) => {
-        streamRef.current = stream;
-        if (myVideoRef.current) {
-          myVideoRef.current.srcObject = stream;
-        }
-        if (!pc || pc.signalingState === 'closed') return;
-        stream.getTracks().forEach(track => {
-          pcRef.current.addTrack(track, stream);
-        });
-        pc.createOffer().then((offer) => {
-          pc.setLocalDescription(offer);
-          socket.emit('call-user', {
-            to: remoteUserId,
-            from: user._id,
-            name: user.name,
-            profileImg: user.profileImg || '',
-            signal: offer,
-          });
-          startCallTimeout();
-        });
-      });
-    }
+    // Debug connection state changes
+    pc.onconnectionstatechange = () => {
+      console.log("Connection state changed:", pc.connectionState);
+    };
 
+    pc.oniceconnectionstatechange = () => {
+      console.log("ICE connection state:", pc.iceConnectionState);
+    };
+
+    pc.onsignalingstatechange = () => {
+      console.log("Signaling state:", pc.signalingState);
+    };
+
+    // Handle incoming media tracks
     pc.ontrack = (event) => {
+      console.log("Track received:", event.track.kind);
       if (userVideoRef.current && event.streams[0]) {
         userVideoRef.current.srcObject = event.streams[0];
       }
     };
 
+    // Handle ICE candidates
     pc.onicecandidate = (event) => {
       if (event.candidate) {
+        console.log("Sending ICE candidate");
         socket.emit('ice-candidate', {
           to: remoteUserId,
           from: user._id,
@@ -110,73 +128,175 @@ const Videocall = () => {
       }
     };
 
+    // Caller logic
+    if (isCaller) {
+      navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+        .then((stream) => {
+          console.log("Got local stream with tracks:", stream.getTracks().map(t => t.kind).join(', '));
+          streamRef.current = stream;
+          
+          if (myVideoRef.current) {
+            myVideoRef.current.srcObject = stream;
+          }
+          
+          if (!pc || pc.signalingState === 'closed') return;
+          
+          // Add tracks to the peer connection
+          stream.getTracks().forEach(track => {
+            pc.addTrack(track, stream);
+          });
+          
+          // Create and send offer
+          return pc.createOffer();
+        })
+        .then((offer) => {
+          if (!pc || pc.signalingState === 'closed') return;
+          console.log("Setting local description (offer)");
+          return pc.setLocalDescription(offer);
+        })
+        .then(() => {
+          if (!pc || pc.signalingState === 'closed') return;
+          
+          console.log("Sending call offer");
+          socket.emit('call-user', {
+            to: remoteUserId,
+            from: user._id,
+            name: user.name,
+            profileImg: user.profileImg || '',
+            signal: pc.localDescription,
+          });
+          
+          startCallTimeout();
+        })
+        .catch((error) => {
+          console.error("Error in caller setup:", error);
+        });
+    }
+
+    // Handle incoming call signal (for callee)
     const handleIncomingCallSignal = async (signal) => {
       if (!isCaller && signal) {
         if (pc.signalingState === 'closed') {
           return;
         }
+        
         try {
-          const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+          console.log("Processing incoming call signal");
+          
+          // Get user media
+          const stream = await navigator.mediaDevices.getUserMedia({ 
+            video: true, 
+            audio: true 
+          });
+          
+          console.log("Got local stream with tracks:", stream.getTracks().map(t => t.kind).join(', '));
           streamRef.current = stream;
+          
           if (myVideoRef.current) {
             myVideoRef.current.srcObject = stream;
           }
+          
+          // Add tracks to the peer connection
           stream.getTracks().forEach(track => {
-            pcRef.current.addTrack(track, stream);
+            pc.addTrack(track, stream);
           });
+          
+          // Set remote description
+          console.log("Setting remote description (offer)");
           await pc.setRemoteDescription(new RTCSessionDescription(signal));
+          
+          // Process any queued ICE candidates now that remote description is set
+          await processIceCandidateQueue();
+          
+          // Create and set local description (answer)
+          console.log("Creating answer");
           const answer = await pc.createAnswer();
+          
+          console.log("Setting local description (answer)");
           await pc.setLocalDescription(answer);
+          
+          // Send answer
+          console.log("Sending call answer");
           socket.emit('answer-call', {
             to: remoteUserId,
             from: user._id,
             signal: answer,
           });
+          
         } catch (error) {
           console.error("Error handling incoming call:", error);
         }
       }
     };
 
+    // Handle call answered signal (for caller)
     const handleCallAnsweredSignal = async (signal) => {
       if (isCaller && signal) {
         try {
+          console.log("Processing call answered signal");
+          console.log("Setting remote description (answer)");
           await pc.setRemoteDescription(new RTCSessionDescription(signal));
+          
+          // Process any queued ICE candidates now that remote description is set
+          await processIceCandidateQueue();
+          
         } catch (error) {
           console.error("Error setting remote description:", error);
         }
       }
     };
 
+    // Handle ICE candidate (for both caller and callee)
     const handleIceCandidateSignal = async (candidate) => {
       if (candidate) {
         try {
-          await pc.addIceCandidate(new RTCIceCandidate(candidate));
+          // If remote description is set, add candidate immediately
+          if (pc.remoteDescription) {
+            console.log("Adding ICE candidate directly");
+            await pc.addIceCandidate(new RTCIceCandidate(candidate));
+          } else {
+            // Otherwise queue the candidate for later
+            console.log("Queueing ICE candidate for later");
+            iceCandidateQueue.current.push(candidate);
+          }
         } catch (error) {
-          console.error("Error adding ICE candidate:", error);
+          console.error("Error handling ICE candidate:", error);
         }
       }
     };
 
+    // Attach handlers to window for UserAuthStore to call
     window.handleIncomingCallSignal = handleIncomingCallSignal;
     window.handleCallAnsweredSignal = handleCallAnsweredSignal;
     window.handleIceCandidateSignal = handleIceCandidateSignal;
 
+    // Process any signals that arrived before component mounted
     processPendingSignals();
 
+    // Cleanup function
     return () => {
-      pc.close();
+      if (pc) {
+        pc.close();
+      }
+      
+      // Remove window handlers
       delete window.handleIncomingCallSignal;
       delete window.handleCallAnsweredSignal;
       delete window.handleIceCandidateSignal;
-      if (pcRef.current) pcRef.current.close();
+      
+      // Stop media tracks
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((track) => track.stop());
         streamRef.current = null;
       }
+      
+      // Clear timers
       clearInterval(timerInterval.current);
+      
+      // Clear queue
+      iceCandidateQueue.current = [];
     };
-  }, [socket]);
+  }, [socket, user, selecteduser, call]); // Add proper dependencies here
 
   const handleEndCall = () => {
     if (call && call.user && call.user._id) {
