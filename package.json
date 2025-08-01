@@ -2,10 +2,14 @@
   "name": "whatsapp-clone",
   "version": "1.0.0",
   "main": "index.js",
-  "devDependencies": {},
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
   "scripts": {
     "build": "npm install --prefix client && npm install --prefix server && npm run build --prefix client",
-    "start": "npm start --prefix server"
+    "start": "npm start --prefix server",
+    "heroku-postbuild": "npm install --prefix client && npm run build --prefix client && npm install --prefix server"
   },
   "author": "",
   "license": "ISC",
