@@ -82,7 +82,9 @@ app.use(express.static(path.join(__dirname, '../client/dist'), {
     if (filePath.match(/\.(css|js|png|jpg|jpeg|svg|ico|woff|woff2|ttf|eot)$/)) {
       res.setHeader('Cache-Control', 'public, max-age=86400'); // 1 day
     }
-  }));
+  }
+}));
+
 
 // Catch-all for React Router (MUST be last)
 app.get('*', (req, res) => {
