@@ -1,0 +1,44 @@
+.sendmessagebox {
+    display: flex;
+    height: 100%;
+    width: 100%;
+    gap: 20px;
+
+    justify-content: center;
+    align-items: center;
+}
+
+.sendmessagebox form {
+    width: 100%;
+    display: flex;
+    justify-content: space-around;
+    margin: 0 33px;
+    gap: 33px;
+}
+
+.sendmessagebox input {
+    background-color: antiquewhite;
+    height: 34px;
+    border-radius: 10px;
+    padding: 12px;
+    width: 100%;
+
+}
+.sendmessagebox input:focus {
+    outline: none;
+    border: 2px solid rgb(17, 99, 57);
+}
+
+
+
+.sendmessagebox button {
+    background-color: rgb(35, 33, 33);
+    border-radius: 10px;
+    padding: 2px 13px;
+    color: azure;
+}
+
+.sendmessagebox button:disabled {
+    background-color: rgb(65, 63, 63);
+    cursor: not-allowed;
+}

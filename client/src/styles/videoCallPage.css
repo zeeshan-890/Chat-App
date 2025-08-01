@@ -1,0 +1,171 @@
+.call-container {
+    position: relative;
+    width: 100%;
+    height: 100vh;
+    background-color: #000;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .user-video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  
+  .my-video {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    width: 180px;
+    height: 120px;
+    border: 2px solid #fff;
+    border-radius: 10px;
+    object-fit: cover;
+    z-index: 2;
+  }
+  
+  .top-bar {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    z-index: 3;
+  }
+  
+  .user-avatar {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid white;
+  }
+  
+  .user-name {
+    color: white;
+    font-size: 1.2rem;
+    font-weight: 500;
+  }
+
+  .call-info {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    margin-left: auto;
+  }
+
+  .call-status {
+    font-size: 12px;
+    opacity: 0.8;
+    margin-bottom: 2px;
+  }
+
+  .call-timer {
+    font-size: 16px;
+    font-weight: bold;
+  }
+  
+  .end-call-button {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: #ff3b3b;
+    color: white;
+    padding: 12px 24px;
+    font-size: 1rem;
+    border: none;
+    border-radius: 30px;
+    cursor: pointer;
+    z-index: 3;
+    box-shadow: 0 0 10px rgba(255, 0, 0, 0.4);
+    transition: background-color 0.3s;
+  }
+  
+  .end-call-button:hover {
+    background-color: #cc0000;
+  }
+  
+  /* Call Status Overlay */
+.call-status-overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  z-index: 10;
+  background: rgba(0, 0, 0, 0.7);
+  padding: 20px;
+  border-radius: 10px;
+  color: white;
+}
+
+.ringing-text {
+  margin: 10px 0 0 0;
+  font-size: 18px;
+  font-weight: 500;
+}
+
+/* Ringing Animation */
+.ringing-animation {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.ringing-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background-color: #4CAF50;
+  animation: ringing 1.4s ease-in-out infinite both;
+}
+
+.ringing-dot:nth-child(1) {
+  animation-delay: -0.32s;
+}
+
+.ringing-dot:nth-child(2) {
+  animation-delay: -0.16s;
+}
+
+.ringing-dot:nth-child(3) {
+  animation-delay: 0s;
+}
+
+@keyframes ringing {
+  0%, 80%, 100% {
+    transform: scale(0);
+    opacity: 0.5;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+  
+  /* Responsive */
+  @media (max-width: 768px) {
+    .my-video {
+      width: 120px;
+      height: 90px;
+      bottom: 15px;
+      right: 15px;
+    }
+  
+    .user-name {
+      font-size: 1rem;
+    }
+  
+    .end-call-button {
+      padding: 10px 20px;
+      font-size: 0.9rem;
+    }
+  }
+  

@@ -1,0 +1,40 @@
+.searching {
+
+    height: 50px;
+    width: 100%
+}
+.searching form{
+    height: 100%;
+    display: flex;
+    justify-content: space-around;
+}
+
+.searching form label {
+    display: flex;
+    gap: 12px;
+    padding-left: 12px;
+    border-radius: 25px;
+    background-color: rgba(102, 87, 64, 0.599);
+
+    align-items: center;
+    overflow: hidden;
+    height: 100%;
+    width: 100%;
+}
+
+.searching input {
+    background-color: transparent;
+    height: 100%;
+    outline: none;
+    border: none;
+    width: 100%;
+}
+
+.searching form button{
+    width: 70px;
+    background-color: rgba(101, 119, 109, 0.651);
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}

@@ -1,0 +1,41 @@
+.messagearea {
+    width: 100%;
+
+
+    /* background-color: aquamarine; */
+    padding: 10px 2px;
+    overflow: auto;
+    height: 100%;
+}
+
+.startchat {
+    /* background-color: rgb(55, 63, 61); */
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    height: 33px;
+    margin: 12px 5px;
+}
+
+.startchat>p {
+    padding: 8px;
+    background-color: rgba(129, 111, 89, 0.704);
+
+    border-radius: 7px;
+}
+
+.endchat {
+
+    display: flex;
+    justify-content: end;
+    align-items: center;
+    height: 33px;
+    margin: 12px 5px;
+}
+
+.endchat>p {
+    background-color: rgba(102, 87, 64, 0.599);
+    padding: 8px;
+
+    border-radius: 7px;
+}

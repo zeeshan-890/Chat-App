@@ -1,0 +1,13 @@
+{
+  "name": "whatsapp-clone",
+  "version": "1.0.0",
+  "main": "index.js",
+  "devDependencies": {},
+  "scripts": {
+    "build": "npm install --prefix client && npm install --prefix server && npm run build --prefix client",
+    "start": "npm start --prefix server"
+  },
+  "author": "",
+  "license": "ISC",
+  "description": ""
+}

@@ -1,0 +1,32 @@
+.mainbox{
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.secondbox{
+    display: flex;
+    justify-content: center;
+    flex-direction: column;
+    align-items: center;
+    width: 80%;
+    height: 80%;
+   
+}
+.chatimage img{
+    width: 100px;
+}
+
+.chattext{
+    margin-top: 23px;
+    font-family:'Trebuchet MS', 'Lucida Sans Unicode', 'Lucida Grande', 'Lucida Sans', Arial, sans-serif;
+    font-size: 23px;
+    font-weight: 600;
+}
+@media (max-width: 1280px) {
+    .profilename {
+        font-size: 16px;
+    }
+}

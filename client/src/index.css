@@ -1,0 +1,160 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap');
+
+html,
+body,
+#root {
+    width: 100vw;
+    height: 100vh;
+    /* border: #484d48 3px solid; */
+
+}
+
+.signupbody {
+    width: 100%;
+    height: 100%;
+    /* border: #484d48 3px solid; */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    background: linear-gradient(135deg, #4e9a65, #484d48);
+
+}
+
+/* body {
+    font-family: 'Poppins', sans-serif;
+    background: linear-gradient(135deg, #25865d, #51ab51);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+} */
+
+
+.homesec {
+    width: 90%;
+    height: 90%;
+
+
+
+    background-color: #99e099;
+
+
+    margin: auto;
+
+    border-radius: 30px;
+    overflow: auto;
+    display: grid;
+    grid-template-columns: 1fr 1.3fr;
+
+
+
+
+}
+
+.leftside,
+.rightside {
+    height: 100%;
+    padding: 12px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+
+    overflow: hidden;
+    background-color: #99e099;
+
+    overflow: auto;
+
+
+}
+
+.leftside {
+    background-color: #92b19870;
+    /* background-color: #3fd85d70; */
+}
+
+.mainchatbox {
+    display: grid;
+    grid-template-rows: 0.9fr 100fr 0.7fr;
+    height: 100%;
+    align-items: center;
+    background-color: #99e099;
+    width: 100%;
+
+}
+
+.chatprof {
+
+    padding-bottom: 10px;
+    border-bottom: 1px solid;
+    margin-top: 12px;
+    /* border: 2px solid; */
+
+
+}
+
+.messagebo {
+    padding: 12px;
+    height: 100%;
+    overflow: auto;
+    /* border: 2px solid; */
+}
+
+.sendmsg {
+    height: 100%;
+
+    padding-bottom: 10px;
+    padding-top: 13px;
+    /* border: 2px solid; */
+
+}
+
+.backicon {
+    width: 23px;
+    height: 23px;
+    background-color: #6c7d6c;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-radius: 50%;
+}
+
+.backicon:hover {
+    transition: all 0.1s ease;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: #485d48;
+    border-radius: 50%;
+    width: 23px;
+    height: 23px;
+}
+
+
+@media (max-width: 756px) {
+    .hide-on-mobile {
+        display: none !important;
+    }
+
+    .leftside,
+    .rightside {
+        width: 100%;
+        background-color: transparent;
+    }
+
+    .homesec {
+        display: flex;
+        width: 100vw;
+        flex-direction: column;
+        height: 100%;
+        border-radius: 0px;
+
+    }
+}
+
+@media (max-width: 1280px) {
+    .profilename {
+        font-size: 16px;
+    }
+}
