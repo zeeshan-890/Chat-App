@@ -34,7 +34,7 @@ const corsOptions = {
     const allowedOrigins = [
       'http://localhost:5173',
       'http://localhost:3000',
-      'https://your-heroku-app.herokuapp.com'
+      'https://chat-app-zeeshan-b25392777074.herokuapp.com' // Update with your actual Heroku URL
     ];
 
     if (allowedOrigins.indexOf(origin) !== -1) {
@@ -54,45 +54,40 @@ app.use(fileUpload());
 app.use(express.urlencoded({ extended: true }))
 app.use(cookieParser())
 
-// Serve assets first with proper MIME types
-app.use('/assets', express.static(path.join(__dirname, '../client/dist/assets'), {
-  setHeaders: (res, filePath) => {
-    if (filePath.endsWith('.css')) {
-      res.setHeader('Content-Type', 'text/css');
-    }
-    if (filePath.endsWith('.js')) {
-      res.setHeader('Content-Type', 'application/javascript');
-    }
-    if (filePath.endsWith('.png')) {
-      res.setHeader('Content-Type', 'image/png');
-    }
-    if (filePath.endsWith('.jpg') || filePath.endsWith('.jpeg')) {
-      res.setHeader('Content-Type', 'image/jpeg');
-    }
-    if (filePath.endsWith('.svg')) {
-      res.setHeader('Content-Type', 'image/svg+xml');
-    }
-  }
-}));
-
-// Serve other static files from dist
-app.use(express.static(path.join(__dirname, '../client/dist'), {
-  setHeaders: (res, filePath) => {
-    if (filePath.endsWith('.html')) {
-      res.setHeader('Content-Type', 'text/html');
-    }
-  }
-}));
-
-// API routes
+// API routes FIRST (before static files)
 app.use('/api/user', userroute)
 app.use('/api/message', msgroute)
 
-// Catch-all for React Router (must be LAST)
+// Serve static files with proper cache headers
+app.use(express.static(path.join(__dirname, '../client/dist'), {
+  maxAge: '1d',
+  etag: false,
+  setHeaders: (res, filePath, stat) => {
+    // Set proper MIME types
+    if (filePath.endsWith('.css')) {
+      res.setHeader('Content-Type', 'text/css');
+    } else if (filePath.endsWith('.js')) {
+      res.setHeader('Content-Type', 'application/javascript');
+    } else if (filePath.endsWith('.png')) {
+      res.setHeader('Content-Type', 'image/png');
+    } else if (filePath.endsWith('.jpg') || filePath.endsWith('.jpeg')) {
+      res.setHeader('Content-Type', 'image/jpeg');
+    } else if (filePath.endsWith('.svg')) {
+      res.setHeader('Content-Type', 'image/svg+xml');
+    } else if (filePath.endsWith('.html')) {
+      res.setHeader('Content-Type', 'text/html');
+    }
+
+    // Add cache control
+    if (filePath.match(/\.(css|js|png|jpg|jpeg|svg|ico|woff|woff2|ttf|eot)$/)) {
+      res.setHeader('Cache-Control', 'public, max-age=86400'); // 1 day
+    }
+  }));
+
+// Catch-all for React Router (MUST be last)
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../client/dist/index.html'));
 });
-
 
 server.listen(port, () => console.log(`Server listening on port ${port}`))
 

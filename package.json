@@ -1,17 +1,19 @@
 {
-  "name": "whatsapp-clone",
+  "name": "fullstack-chat-app",
   "version": "1.0.0",
-  "main": "index.js",
+  "type": "module",
   "engines": {
     "node": "22.x",
     "npm": "10.x"
   },
   "scripts": {
-    "build": "cd client && npm install && npm run build && cd ../server && npm install",
-    "start": "npm start --prefix server"
-   
+    "build": "cd client && npm ci && npm run build",
+    "heroku-postbuild": "cd client && npm ci && npm run build && cd ../server && npm ci",
+    "start": "cd server && npm start",
+    "dev": "concurrently \"cd server && npm run dev\" \"cd client && npm run dev\""
   },
-  "author": "",
-  "license": "ISC",
-  "description": ""
+  "dependencies": {},
+  "devDependencies": {
+    "concurrently": "^8.2.0"
+  }
 }
