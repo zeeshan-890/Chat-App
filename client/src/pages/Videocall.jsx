@@ -3,11 +3,32 @@ import { useNavigate } from 'react-router-dom';
 import { userauthstore } from '../Store/UserAuthStore';
 import '../styles/videoCallPage.css';
 
-const ICE_SERVERS = {
+const rtcConfiguration = {
   iceServers: [
-    { urls: 'stun:stun.l.google.com:19302' },
+    {
+      urls: [
+        'stun:stun.l.google.com:19302',
+        'stun:stun1.l.google.com:19302',
+        'stun:stun2.l.google.com:19302',
+        'stun:stun3.l.google.com:19302',
+        'stun:stun4.l.google.com:19302'
+      ]
+    },
+    // Add TURN servers for mobile/NAT traversal
+    {
+      urls: 'turn:openrelay.metered.ca:80',
+      username: 'openrelayproject',
+      credential: 'openrelayproject'
+    },
+    {
+      urls: 'turn:openrelay.metered.ca:443',
+      username: 'openrelayproject',
+      credential: 'openrelayproject'
+    }
   ],
+  iceCandidatePoolSize: 10
 };
+
 
 const Videocall = () => {
   const myVideoRef = useRef();
@@ -46,7 +67,7 @@ const Videocall = () => {
       pcRef.current.close();
       pcRef.current = null;
     }
-    const pc = new RTCPeerConnection(ICE_SERVERS);
+    const pc = new RTCPeerConnection(rtcConfiguration);
     pcRef.current = pc;
 
     if (isCaller) {
@@ -190,11 +211,11 @@ const Videocall = () => {
   return (
     <div className="call-container">
       {/* Other User's Video */}
-      <video 
-        ref={userVideoRef} 
-        className="user-video" 
-        autoPlay 
-        playsInline 
+      <video
+        ref={userVideoRef}
+        className="user-video"
+        autoPlay
+        playsInline
         onError={(e) => console.error("Remote video error:", e)}
       />
 
@@ -225,12 +246,12 @@ const Videocall = () => {
       )}
 
       {/* Your Video in Bottom Right */}
-      <video 
-        ref={myVideoRef} 
-        className="my-video" 
-        autoPlay 
-        muted 
-        playsInline 
+      <video
+        ref={myVideoRef}
+        className="my-video"
+        autoPlay
+        muted
+        playsInline
         onError={(e) => console.error("Local video error:", e)}
       />
 
