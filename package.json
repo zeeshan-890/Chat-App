@@ -7,9 +7,9 @@
     "npm": "10.x"
   },
   "scripts": {
-    "build": "npm install --prefix client && npm install --prefix server && npm run build --prefix client",
+    "build": "cd client && npm install && npm run build && cd ../server && npm install",
     "start": "npm start --prefix server",
-    "heroku-postbuild": "cd client && npm install && npm run build && cd ../server && npm install"
+    "heroku-postbuild": "cd client && npm ci && npm run build && cd ../server && npm ci"
   },
   "author": "",
   "license": "ISC",
