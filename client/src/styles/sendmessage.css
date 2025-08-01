@@ -20,10 +20,14 @@
     background-color: antiquewhite;
     height: 34px;
     border-radius: 10px;
-    padding: 12px;
+    font-size: 18px;
+    /* padding: 12px; */
+    padding-left: 13px;
     width: 100%;
+    margin-bottom: 10px;
 
 }
+
 .sendmessagebox input:focus {
     outline: none;
     border: 2px solid rgb(17, 99, 57);
@@ -36,6 +40,7 @@
     border-radius: 10px;
     padding: 2px 13px;
     color: azure;
+    margin-bottom: 10px;
 }
 
 .sendmessagebox button:disabled {

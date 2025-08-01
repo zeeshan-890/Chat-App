@@ -1,64 +1,71 @@
-    .profilcard{
+    .profilcard {
         max-width: 100%;
-       
+
         display: flex;
         margin: auto;
         justify-content: space-between;
         align-items: center;
-         font-family: "Poppins", sans-serif;
-        
+        font-family: "Poppins", sans-serif;
+
 
     }
-    .profiledata{
+
+    .profiledata {
         display: flex;
         gap: 12px;
-       margin-left: 13px;
+        margin-left: 13px;
         justify-content: center;
         align-items: center;
     }
-    .profilimg img{
+
+    .profilimg img {
         border-radius: 50%;
         width: 53px;
         height: 53px;
-        object-fit:cover;
+        object-fit: cover;
     }
-    .profilenames{
+
+    .profilenames {
         display: flex;
         flex-direction: column;
     }
-    .profilename{
+
+    .profilename {
         font-size: 20px;
         font-weight: 600;
-        text-shadow: 0px 0px 20px  black;
+        text-shadow: 0px 0px 20px black;
 
     }
-    .profileusername{
+
+    .profileusername {
         font-size: 14px;
         font-weight: 300;
     }
-    .menu{
-        
+
+    .menu {
+
         position: relative;
         margin-right: 33px;
     }
-    .menubtns{
+
+    .menubtns {
         position: absolute;
         background-color: rgb(215, 227, 220);
         width: 95px;
-        border: 1px solid;
+        /* border: 1px solid; */
         top: 30px;
         right: 10px;
         display: flex;
         flex-direction: column;
         padding: 5px 0;
-       
-        box-shadow: 3px 3px 13px rgb(142, 139, 139) ;
+
+        box-shadow: 4px 4px 13px rgb(111, 109, 109);
         display: none;
-   
-        
+
+
     }
-    
-    .menubtns div{
+
+    .menubtns div {
         font-weight: 500;
         text-align: center;
         width: 100%;
@@ -66,15 +73,24 @@
         display: flex;
         justify-content: center;
         align-items: center;
-       
-      
+        cursor: pointer;
+        transition: all 0.2s ease;
     }
 
-    .menubtns div:hover{
+    .menubtns div button {
+        background-color: transparent;
+        border: none;
+        color: black;
+        font-size: 16px;
+        cursor: pointer;
+    }
+
+    .menubtns div:hover {
         background-color: rgba(96, 186, 112, 0.673);
     }
+
     @media (max-width: 1280px) {
-    .profilename {
-        font-size: 16px;
+        .profilename {
+            font-size: 16px;
+        }
     }
-}

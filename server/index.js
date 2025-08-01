@@ -7,7 +7,6 @@ import path from 'path';
 import mongoose from 'mongoose';
 import cors from 'cors';
 import { io, app, server } from "./services/socket.js";
-
 import { fileURLToPath } from 'url';
 
 import userroute from './routes/user.js';
@@ -27,26 +26,73 @@ const __dirname = path.dirname(__filename);
 
 const port = process.env.PORT || 3000;
 
-app.use(cors({ origin: '*', credentials: true })); // Allow frontend origin
+// CORS configuration
+const corsOptions = {
+  origin: function (origin, callback) {
+    if (!origin) return callback(null, true);
+
+    const allowedOrigins = [
+      'http://localhost:5173',
+      'http://localhost:3000',
+      'https://your-heroku-app.herokuapp.com'
+    ];
+
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie']
+};
+
+app.use(cors(corsOptions));
 app.use(express.json())
 app.use(fileUpload());
 app.use(express.urlencoded({ extended: true }))
-// app.use(cors({ origin: 'http://localhost:5173',credentials:true })); // Allow frontend origin
-
 app.use(cookieParser())
 
+// Serve assets first with proper MIME types
+app.use('/assets', express.static(path.join(__dirname, '../client/dist/assets'), {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.css')) {
+      res.setHeader('Content-Type', 'text/css');
+    }
+    if (filePath.endsWith('.js')) {
+      res.setHeader('Content-Type', 'application/javascript');
+    }
+    if (filePath.endsWith('.png')) {
+      res.setHeader('Content-Type', 'image/png');
+    }
+    if (filePath.endsWith('.jpg') || filePath.endsWith('.jpeg')) {
+      res.setHeader('Content-Type', 'image/jpeg');
+    }
+    if (filePath.endsWith('.svg')) {
+      res.setHeader('Content-Type', 'image/svg+xml');
+    }
+  }
+}));
 
-app.use('/user', userroute)
-app.use('/message', msgroute)
+// Serve other static files from dist
+app.use(express.static(path.join(__dirname, '../client/dist'), {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.html')) {
+      res.setHeader('Content-Type', 'text/html');
+    }
+  }
+}));
 
+// API routes
+app.use('/api/user', userroute)
+app.use('/api/message', msgroute)
 
+// Catch-all for React Router (must be LAST)
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../client/dist/index.html'));
+});
 
-if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, '../client/dist')))
-  app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '../client', 'dist', 'index.html'))
-  })
-}
 
 server.listen(port, () => console.log(`Server listening on port ${port}`))
 

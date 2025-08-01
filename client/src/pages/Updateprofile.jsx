@@ -41,7 +41,7 @@ const Updateprofile = () => {
 
 
     function handleback() {
-     navigate('/')
+        navigate('/')
     }
 
 
@@ -62,11 +62,11 @@ const Updateprofile = () => {
         <div className="updatebody">
             <div className="updatemainsec">
                 <div className='updatesec'>
-               
-                    <div className="heading">
-                    <div onClick={handleback} className="backicon"><IoArrowBackSharp scale={30} /></div>
 
-                 
+                    <div className="heading">
+                        <div onClick={handleback} className="backicon"><IoArrowBackSharp scale={30} /></div>
+
+
                         <h1> Update profile</h1>
                     </div>
                     <div className='updateform'>
@@ -86,7 +86,7 @@ const Updateprofile = () => {
 
                             <div className="profilepicsec">
                                 <div className="imagepreview">
-                                    <img src={preview || user.profileImg || "/src/assets/avatar.jpg"} alt="" />
+                                    <img src={preview || user.profileImg || "/avatar.jpg"} alt="" />
                                 </div>
                                 <label htmlFor="image">Profile Picture</label>
                                 <input type="file" name='image' onChange={handleImageChange} />

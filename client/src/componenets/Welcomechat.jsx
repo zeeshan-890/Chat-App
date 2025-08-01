@@ -3,14 +3,14 @@ import "../styles/welcomechat.css"
 const Welcomechat = () => {
   return (
     <div className="mainbox">
-        <div className="secondbox">
-            <div className="chatimage">
-            <img src="/src/assets/chat.png" alt="" />
-            </div>
-            <div className="chattext">
-                Welcome to Chat
-            </div>
+      <div className="secondbox">
+        <div className="chatimage">
+          <img src="/chat.png" alt="" />
         </div>
+        <div className="chattext">
+          Welcome to Chat
+        </div>
+      </div>
     </div>
   )
 }

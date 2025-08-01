@@ -28,7 +28,7 @@ const Chatprofile = () => {
             <div className="profiledata">
                 <div onClick={handleback} className="backicon"><IoArrowBackSharp /></div>
                 <div className="profilimg">
-                    <img src={selecteduser.profileImg || "/src/assets/avatar.jpg"} alt="profile" />
+                    <img src={selecteduser.profileImg || "/avatar.jpg"} alt="profile" />
                 </div>
                 <div className="profilenames">
                     <div className="profilename">{selecteduser.name}</div>
@@ -44,7 +44,7 @@ const Chatprofile = () => {
                     }}
                     title="Start video call"
                 >
-                    <FaVideo size={23} />
+                    <FaVideo size={20} border="none" />
                 </button>
             </div>
         </div>

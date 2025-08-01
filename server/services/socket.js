@@ -6,13 +6,13 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
-        origin: '*',
+        origin: 'http://localhost:5173', // Use your actual client URL
         credentials: true
     }
 });
 
 // Only keep this startup log
-// console.log(`Socket.io server created with CORS origin: ${process.env.CLIENT_URL || 'http://localhost:5173'}`);
+console.log(`Socket.io server created with CORS origin: ${process.env.CLIENT_URL || 'http://localhost:5173'}`);
 
 const usersocketmap = {};
 

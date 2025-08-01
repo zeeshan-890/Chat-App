@@ -1,4 +1,4 @@
-import React, { useState ,useEffect,useRef} from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import "../styles/profilesec.css"
 import { RiMenuLine } from "react-icons/ri";
 import { MdLogout } from 'react-icons/md';
@@ -10,27 +10,27 @@ const Profilesec = () => {
 
     const navigate = useNavigate()
 
-    const { logout, user,islogingout } = userauthstore()
+    const { logout, user, islogingout } = userauthstore()
 
     const [btns, setshowbtns] = useState(false)
     const menuref = useRef(null);
-// const menuref = useRef()
-    
+    // const menuref = useRef()
+
     useEffect(() => {
         const handleClick = (event) => {
             if (!menuref.current.contains(event.target)) {
                 setshowbtns(false);
-              }
             }
-        
-        
-    
+        }
+
+
+
         window.addEventListener('click', handleClick);
-    
+
         return () => {
-          window.removeEventListener('click', handleClick); // Cleanup on unmount
+            window.removeEventListener('click', handleClick); // Cleanup on unmount
         };
-      }, []);
+    }, []);
 
 
     function shownmenu() {
@@ -52,18 +52,18 @@ const Profilesec = () => {
         <div className="profilcard"  >
             <div className="profiledata">
                 <div className="profilimg">
-                    <img src={user.profileImg || "/src/assets/avatar.jpg"} alt="profile" />
+                    <img src={user.profileImg || "/avatar.jpg"} alt="profile" />
                 </div>
                 <div className="profilenames">
                     <div className="profilename">{user.name}</div>
                     <div className="profileusername">{user.username}</div>
                 </div>
             </div>
-            <div className="menu"   ref={menuref}>
+            <div className="menu" ref={menuref}>
                 <div className="menuicon" onClick={shownmenu}>
                     <RiMenuLine size={25} />
                 </div>
-                <div  className="menubtns" style={disp}>
+                <div className="menubtns" style={disp}>
                     <div className="editbtn" onClick={() => navigate("/editprofile")}> Edit Profile</div>
                     <div className="logoutbtn" >
                         <button onClick={handlelogout} disabled={islogingout}>

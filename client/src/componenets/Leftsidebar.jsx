@@ -42,7 +42,7 @@ const Leftsidebar = () => {
                   id={user._id}
                   user={user}
                   name={user.name}
-                  profileImg={user.profileImg || "/src/assets/avatar.jpg"}
+                  profileImg={user.profileImg || "/avatar.jpg"}
                 />
               ))}
             </>
@@ -52,7 +52,7 @@ const Leftsidebar = () => {
                 key={user._id}
                 user={user}
                 name={user.name}
-                profileImg={user.profileImg || "/src/assets/avatar.jpg"}
+                profileImg={user.profileImg || "/avatar.jpg"}
               />
             ))
           ) : (

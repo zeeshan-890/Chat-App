@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import AppRoutes from './Routes/AppRoutes.jsx';
-import { BrowserRouter as Router } from 'react-router-dom'
+// import { BrowserRouter as Router } from 'react-router-dom'
 // import { useNavigate } from 'react-router-dom';
 import './App.css'
 // import { useState,useEffect } from "react"
@@ -39,7 +39,7 @@ function App() {
   //   }, 2000);
   // }, []);
   return (
-    <Router>
+    <>
 
       <AppRoutes />
       <Toaster
@@ -69,7 +69,7 @@ function App() {
           },
         }}
       />
-    </Router>
+    </>
 
   )
 }
