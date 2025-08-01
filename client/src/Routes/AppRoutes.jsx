@@ -1,13 +1,13 @@
 // src/routes/AppRoutes.jsx
 import { Routes, Route } from 'react-router-dom';
-import Signup from '../pages/Signup';
-import Login from '../pages/Login';
-import Home from "../pages/Home"
+import Signup from '../pages/Signup.jsx';
+import Login from '../pages/Login.jsx';
+import Home from "../pages/Home.jsx"
 import Updateprofile from '../pages/Updateprofile.jsx';
 import { userauthstore } from '../Store/UserAuthStore.jsx';
 import ProtectedRoute from '../componenets/Protectedroute.jsx';
 import { MdVideoCall } from 'react-icons/md';
-import Videocall from "../pages/Videocall"
+import Videocall from "../pages/Videocall.jsx"
 
 
 
