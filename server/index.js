@@ -1,16 +1,19 @@
-require('dotenv').config();
-const fileUpload = require('express-fileupload');
-const express = require('express')
-const path = require('path')
-const mongoose = require('mongoose')
-const cors = require('cors');
-const { io, app, server } = require("./services/socket")
-const { ExpressPeerServer } = require('peer');
+import { config } from 'dotenv';
+config();
 
-const userroute = require('./routes/user')
-const msgroute = require('./routes/message')
-const { checkauth } = require('./middlewares/checkauth')
-const cookieParser = require('cookie-parser')
+import fileUpload from 'express-fileupload';
+import express from 'express';
+import path from 'path';
+import mongoose from 'mongoose';
+import cors from 'cors';
+import { io, app, server } from "./services/socket.js";
+
+import { fileURLToPath } from 'url';
+
+import userroute from './routes/user.js';
+import msgroute from './routes/message.js';
+import { checkauth } from './middlewares/checkauth.js';
+import cookieParser from 'cookie-parser';
 
 mongoose.connect(process.env.Mongo_Url).then(() => {
   console.log('Connected to MongoDB')
@@ -18,8 +21,9 @@ mongoose.connect(process.env.Mongo_Url).then(() => {
   console.error('Error connecting to MongoDB:', err)
 })
 
-const __dirname = path.resolve();
-
+// ES module equivalent of __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const port = process.env.PORT || 3000;
 
@@ -31,17 +35,11 @@ app.use(express.urlencoded({ extended: true }))
 
 app.use(cookieParser())
 
-// // Attach PeerJS server to your existing HTTP server
-// const peerServer = ExpressPeerServer(server, {
-//   path: '/myapp',
-//   debug: true,
-// });
 
 app.use('/user', userroute)
 app.use('/message', msgroute)
 
-// Attach PeerJS server LAST to avoid conflicts
-// app.use('/myapp', peerServer);
+
 
 if (process.env.NODE_ENV === 'production') {
   app.use(express.static(path.join(__dirname, '../client/dist')))

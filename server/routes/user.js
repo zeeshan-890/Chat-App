@@ -1,22 +1,13 @@
-const express = require('express');
-const { registerUser, loginUser,updateuser,check,logout ,getusersforsidebar} = require('../controllers/user');
+import express from 'express';
+import { registerUser, loginUser, updateuser, check, logout, getusersforsidebar } from '../controllers/user.js';
 const router = express.Router();
-const {checkauth} = require("../middlewares/checkauth")
+import { checkauth } from "../middlewares/checkauth.js"
 
-
-
-
-
-
-
-
-router.post('/update', checkauth,updateuser)
+router.post('/update', checkauth, updateuser)
 router.post('/sign-up', registerUser)
 router.post('/login', loginUser);
 router.get('/logout', logout);
-router.get("/check",checkauth,check)
-router.get("/getusers",checkauth,getusersforsidebar)
+router.get("/check", checkauth, check)
+router.get("/getusers", checkauth, getusersforsidebar)
 
-
-
-module.exports = router;
+export default router;

@@ -1,29 +1,34 @@
-const {Server, Socket} = require("socket.io")
-const http = require('http')
-const express = require('express')
+import { Server } from "socket.io";
+import http from 'http';
+import express from 'express';
 
-const app = express()
-const server= http.createServer(app)
-const io = new Server(server ,{cors:{origin:'http://localhost:5173',credentials:true }})
+const app = express();
+const server = http.createServer(app);
+const io = new Server(server, {
+    cors: {
+        origin: '*',
+        credentials: true
+    }
+});
 
 // Only keep this startup log
-console.log("Socket.io server created with CORS origin: http://localhost:5173");
+// console.log(`Socket.io server created with CORS origin: ${process.env.CLIENT_URL || 'http://localhost:5173'}`);
 
-const usersocketmap = {}
+const usersocketmap = {};
 
-io.on('connection',(socket)=>{
+io.on('connection', (socket) => {
     // Only log connection event
-    // console.log('connected successfully to socket ',socket.id);
+    // console.log('connected successfully to socket ', socket.id);
 
-    const userId = socket.handshake.query.userId
+    const userId = socket.handshake.query.userId;
     // Only log userId if needed for debugging
-    // console.log('user id :',userId);
-    if(userId){
-        usersocketmap[userId] = socket.id
+    // console.log('user id :', userId);
+    if (userId) {
+        usersocketmap[userId] = socket.id;
         // console.log('User socket map updated:', usersocketmap);
     }
 
-    io.emit('getonline', Object.keys(usersocketmap))
+    io.emit('getonline', Object.keys(usersocketmap));
 
     // Test event handler
     socket.on('test-event', (data) => {
@@ -74,18 +79,20 @@ io.on('connection',(socket)=>{
         });
     });
 
-    socket.on('disconnect', ()=>{
+    socket.on('disconnect', () => {
         // Only log disconnect if needed
-        delete usersocketmap[userId]
-        io.emit('getonline', Object.keys(usersocketmap))
-    })
+        delete usersocketmap[userId];
+        io.emit('getonline', Object.keys(usersocketmap));
+    });
+});
 
-})
-
-function getreceiversocketid(userId){
-    return usersocketmap[userId]
+function getreceiversocketid(userId) {
+    return usersocketmap[userId];
 }
 
-module.exports = {
-    app,server,io,getreceiversocketid
-}; 
+export {
+    app,
+    server,
+    io,
+    getreceiversocketid
+};

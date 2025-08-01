@@ -1,13 +1,13 @@
-const express = require('express');
-const {getMessages,sendMessage,getunread,markread} = require('../controllers/message');
+import express from 'express';
+import { getMessages, sendMessage, getunread, markread } from '../controllers/message.js';
 const router = express.Router();
-const {checkauth} = require("../middlewares/checkauth")
+import { checkauth } from "../middlewares/checkauth.js"
 
-router.get("/get/:id",checkauth,getMessages)
-router.get("/getunread/:id",checkauth,getunread)
-router.get("/markread/:id",checkauth,markread)
-router.post("/send",checkauth,sendMessage)
+router.get("/get/:id", checkauth, getMessages)
+router.get("/getunread/:id", checkauth, getunread)
+router.get("/markread/:id", checkauth, markread)
+router.post("/send", checkauth, sendMessage)
 
 
 
-module.exports = router;
+export default router;

@@ -1,22 +1,21 @@
-const Message = require('../models/message');
-const User = require('../models/user');
-const{getreceiversocketid , io} = require('../services/socket')
+import Message from '../models/message.js';
+import User from '../models/user.js';
+import { getreceiversocketid, io } from '../services/socket.js';
 
 // Send a message
 async function sendMessage(req, res) {
   console.log(req.body);
-  
 
   try {
-    let text
-    let image
-    const receiver = req.body.receiver 
+    let text;
+    let image;
+    const receiver = req.body.receiver;
 
     if (req.body.text) {
-      text = req.body.text
+      text = req.body.text;
     }
     if (req.body.image) {
-      image = req.body.image
+      image = req.body.image;
     }
 
     const newMessage = await Message.create({
@@ -26,9 +25,9 @@ async function sendMessage(req, res) {
       image,
     });
 
-    const receiversocketid = getreceiversocketid(receiver)
-    if(receiversocketid){
-      io.to(receiversocketid).emit('newMessage',newMessage)
+    const receiversocketid = getreceiversocketid(receiver);
+    if (receiversocketid) {
+      io.to(receiversocketid).emit('newMessage', newMessage);
     }
 
     res.status(201).json({ success: true, message: 'Message sent.', data: newMessage });
@@ -40,19 +39,14 @@ async function sendMessage(req, res) {
 
 // Get all messages between two users
 async function getMessages(req, res) {
-  
-
-  
   try {
-    const  userId  = req.params.id; // userId is the other user's id
+    const userId = req.params.id; // userId is the other user's id
     const messages = await Message.find({
       $or: [
         { sender: req.user._id, receiver: userId },
         { sender: userId, receiver: req.user._id }
       ]
     }).sort({ timestamp: 1 });
-   
-    
 
     res.json({ success: true, messages });
   } catch (error) {
@@ -99,11 +93,9 @@ async function getunread(req, res) {
   }
 }
 
-
-
-module.exports = {
+export {
   sendMessage,
   getMessages,
   markread,
   getunread
-}; 
+};
