@@ -3,9 +3,9 @@ import { Routes, Route } from 'react-router-dom';
 import Signup from '../pages/Signup';
 import Login from '../pages/Login';
 import Home from "../pages/Home"
-import Updateprofile from '../pages/Updateprofile';
-import { userauthstore } from '../Store/UserAuthStore';
-import ProtectedRoute from '../componenets/Protectedroute';
+import Updateprofile from '../pages/Updateprofile.jsx';
+import { userauthstore } from '../Store/UserAuthStore.jsx';
+import ProtectedRoute from '../componenets/Protectedroute.jsx';
 import { MdVideoCall } from 'react-icons/md';
 import Videocall from "../pages/Videocall"
 

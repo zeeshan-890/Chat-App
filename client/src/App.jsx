@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import AppRoutes from './routes/AppRoutes';
+import AppRoutes from './routes/AppRoutes.jsx';
 // import { useNavigate } from 'react-router-dom';
 import './App.css'
 // import { useState,useEffect } from "react"
