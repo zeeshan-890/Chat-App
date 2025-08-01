@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import AppRoutes from './Routes/approutes.jsx';
+import { BrowserRouter as Router } from 'react-router-dom'
 // import { useNavigate } from 'react-router-dom';
 import './App.css'
 // import { useState,useEffect } from "react"
@@ -38,7 +39,8 @@ function App() {
   //   }, 2000);
   // }, []);
   return (
-    <>
+     <Router>
+    
       <AppRoutes />
       <Toaster
         position="top-center"
@@ -67,8 +69,8 @@ function App() {
           },
         }}
       />
-
-    </>
+</Router>
+    
   )
 }
 
