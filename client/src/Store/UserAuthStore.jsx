@@ -33,10 +33,10 @@ export const userauthstore = create((set, get) => ({
     callInterval: null,
     callDuration: 0, // Duration of active call (from answer to end)
     callDurationInterval: null, // Interval for call duration timer
-    pendingSignals: [], // Store signals that arrive before component is ready
     callStatus: null, // 'ringing' | 'connected' | 'ended' | 'offline'
     callTimeout: null, // Timeout for auto-ending calls
     ringtone: null, // Audio element for ringtone
+    pendingSignals: [], // Initialize as empty array to prevent "not iterable" errors
 
     setIncomingCall: (data) => {
         set({ incomingCall: data });
@@ -53,15 +53,32 @@ export const userauthstore = create((set, get) => ({
     // Process pending signals when component is ready
     processPendingSignals: () => {
         const { pendingSignals } = get();
+        
+        // Defensive check to ensure pendingSignals is iterable
+        if (!pendingSignals || !Array.isArray(pendingSignals)) {
+            console.warn('pendingSignals is not properly initialized');
+            set({ pendingSignals: [] });
+            return;
+        }
+
+        console.log(`Processing ${pendingSignals.length} pending signals`);
+        
+        // Process all pending signals
         pendingSignals.forEach(signal => {
-            if (signal.type === 'incoming-call' && window.handleIncomingCallSignal && signal.data.signal) {
-                window.handleIncomingCallSignal(signal.data.signal);
-            } else if (signal.type === 'call-answered' && window.handleCallAnsweredSignal && signal.data.signal) {
-                window.handleCallAnsweredSignal(signal.data.signal);
-            } else if (signal.type === 'ice-candidate' && window.handleIceCandidateSignal && signal.data.candidate) {
-                window.handleIceCandidateSignal(signal.data.candidate);
+            try {
+                if (signal.type === 'incoming-call' && window.handleIncomingCallSignal) {
+                    window.handleIncomingCallSignal(signal.data.signal);
+                } else if (signal.type === 'call-answered' && window.handleCallAnsweredSignal) {
+                    window.handleCallAnsweredSignal(signal.data.signal);
+                } else if (signal.type === 'ice-candidate' && window.handleIceCandidateSignal) {
+                    window.handleIceCandidateSignal(signal.data.candidate);
+                }
+            } catch (error) {
+                console.error('Error processing signal:', error, signal);
             }
         });
+
+        // Clear processed signals
         set({ pendingSignals: [] });
     },
 
@@ -99,27 +116,44 @@ export const userauthstore = create((set, get) => ({
 
     // Ringtone functions
     playRingtone: (prime = false) => {
-        let { ringtone } = get();
-        if (!ringtone) {
-            ringtone = new window.Audio('/ringtone.mp3');
-            ringtone.loop = true;
-            ringtone.volume = 0.7;
-            set({ ringtone });
-        }
         try {
-            ringtone.currentTime = 0;
-            const playPromise = ringtone.play();
-            if (playPromise !== undefined) {
-                playPromise.then(() => {
-                    if (prime) {
-                        ringtone.pause();
-                    }
-                }).catch((err) => {
-                    console.error('Could not play ringtone:', err);
-                });
+            let { ringtone } = get();
+            
+            // Create audio element if it doesn't exist
+            if (!ringtone) {
+                ringtone = new Audio();
+                
+                // Set audio properties before assigning source
+                ringtone.loop = true;
+                ringtone.volume = 0.7;
+                ringtone.preload = 'auto';
+                
+                // Set source - use a simple tone file
+                ringtone.src = `/sounds/ringtone.mp3`;
+                
+                // Save the audio element
+                set({ ringtone });
             }
-        } catch (err) {
-            console.error('Could not play ringtone:', err);
+            
+            // Play with error handling
+            try {
+                ringtone.currentTime = 0;
+                const playPromise = ringtone.play();
+                
+                if (playPromise !== undefined) {
+                    playPromise.then(() => {
+                        if (prime) {
+                            ringtone.pause();
+                        }
+                    }).catch((err) => {
+                        console.log('Could not play ringtone (user interaction required):', err);
+                    });
+                }
+            } catch (err) {
+                console.log('Could not play ringtone:', err);
+            }
+        } catch (error) {
+            console.error('Error in ringtone playback:', error);
         }
     },
 
@@ -212,31 +246,34 @@ export const userauthstore = create((set, get) => ({
     // Socket event listeners for call signaling
     setupCallListeners: () => {
         const { socket } = get();
-        if (!socket) {
-            return;
-        }
+        if (!socket) return;
 
-        // Incoming call
         socket.on('incoming-call', (data) => {
-            set({ incomingCall: data });
+            console.log('Incoming call received:', data);
+            set({ 
+                incomingCall: data,
+                callStatus: 'ringing'
+            });
+
             get().playRingtone();
 
-            // If we're in a video call component, process the signal
-            if (window.handleIncomingCallSignal && data.signal) {
-                window.handleIncomingCallSignal(data.signal);
-            } else {
-                // Store the signal for when the component is ready
-                set((state) => ({
-                    pendingSignals: [...state.pendingSignals, { type: 'incoming-call', data }]
-                }));
-            }
+            // Store the signal for WebRTCService to process
+            set((state) => ({
+                pendingSignals: [...(state.pendingSignals || []), { type: 'incoming-call', data }]
+            }));
         });
 
-        // Call answered
         socket.on('call-answered', (data) => {
+            console.log('Call answered:', data);
+            // IMPORTANT: Don't change the call object structure here, just update the type
+            // This prevents re-renders that might unmount the component
             set((state) => ({
-                call: { ...state.call, type: 'in-call' },
-                callStatus: 'connected'
+                callStatus: 'connected',
+                // Update the call's type property without recreating the object
+                call: state.call ? {
+                    ...state.call,
+                    type: 'in-call'
+                } : state.call
             }));
 
             // Clear timeout since call was answered
@@ -246,15 +283,10 @@ export const userauthstore = create((set, get) => ({
                 set({ callTimeout: null });
             }
 
-            // If we're in a video call component, process the signal
-            if (window.handleCallAnsweredSignal && data.signal) {
-                window.handleCallAnsweredSignal(data.signal);
-            } else {
-                // Store the answer for when the component is ready
-                set((state) => ({
-                    pendingSignals: [...state.pendingSignals, { type: 'call-answered', data }]
-                }));
-            }
+            // Store the signal for WebRTCService to process
+            set((state) => ({
+                pendingSignals: [...(state.pendingSignals || []), { type: 'call-answered', data }]
+            }));
         });
 
         // Call rejected
@@ -304,14 +336,16 @@ export const userauthstore = create((set, get) => ({
 
         // ICE candidate
         socket.on('ice-candidate', (data) => {
-
-            // If we're in a video call component, process the candidate
+            console.log('ICE candidate received');
+            
+            // If we're in a video call component, process the candidate directly
             if (window.handleIceCandidateSignal && data.candidate) {
                 window.handleIceCandidateSignal(data.candidate);
             } else {
-                // Store the candidate for when the component is ready
+                // Otherwise queue the candidate for when the component is ready
+                // Use defensive programming to avoid "not iterable" errors
                 set((state) => ({
-                    pendingSignals: [...state.pendingSignals, { type: 'ice-candidate', data }]
+                    pendingSignals: [...(state.pendingSignals || []), { type: 'ice-candidate', data }]
                 }));
             }
         });

@@ -29,7 +29,7 @@ const IncomingCallModal = () => {
           <div className="ringing-dot"></div>
         </div>
         <img 
-          src={incomingCall.profileImg || '/src/assets/avatar.jpg'} 
+          src={incomingCall.profileImg || '/avatar.jpg'} 
           alt="profile" 
           className="caller-avatar" 
         />

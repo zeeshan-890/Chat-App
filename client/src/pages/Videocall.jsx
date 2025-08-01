@@ -1,43 +1,19 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { userauthstore } from '../Store/UserAuthStore';
+import WebRTCService from '../services/WebRTCService';
 import '../styles/videoCallPage.css';
 
-const rtcConfiguration = {
-  iceServers: [
-    {
-      urls: [
-        'stun:stun.l.google.com:19302',
-        'stun:stun1.l.google.com:19302',
-        'stun:stun2.l.google.com:19302',
-        'stun:stun3.l.google.com:19302',
-        'stun:stun4.l.google.com:19302'
-      ]
-    },
-    // Add TURN servers for mobile/NAT traversal
-    {
-      urls: 'turn:openrelay.metered.ca:80',
-      username: 'openrelayproject',
-      credential: 'openrelayproject'
-    },
-    {
-      urls: 'turn:openrelay.metered.ca:443',
-      username: 'openrelayproject',
-      credential: 'openrelayproject'
-    }
-  ],
-  iceCandidatePoolSize: 10
-};
-
 const Videocall = () => {
+  // Add this to track if component is already mounted
+  const isInitializedRef = useRef(false);
   const myVideoRef = useRef();
   const userVideoRef = useRef();
-  const pcRef = useRef();
   const streamRef = useRef();
   const navigate = useNavigate();
-  const [timer] = useState(0);
-  const timerInterval = useRef();
-  const iceCandidateQueue = useRef([]); // Queue to store candidates that arrive early
+  const [connectionState, setConnectionState] = useState('new');
+  const [localStreamReady, setLocalStreamReady] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
   const {
     user,
@@ -48,255 +24,174 @@ const Videocall = () => {
     socket,
     processPendingSignals,
     callStatus,
-    startCallTimeout,
     callDuration,
     startCallDurationTimer,
   } = userauthstore();
 
-  // Function to process queued ICE candidates
-  const processIceCandidateQueue = async () => {
-    const pc = pcRef.current;
-    if (!pc || pc.signalingState === 'closed') return;
-
-    // Process any queued ICE candidates
-    while (iceCandidateQueue.current.length > 0) {
-      const candidate = iceCandidateQueue.current.shift();
-      try {
-        await pc.addIceCandidate(new RTCIceCandidate(candidate));
-        console.log("Successfully added queued ICE candidate");
-      } catch (error) {
-        console.error("Error adding queued ICE candidate:", error);
+  // Function to initialize user media
+  const initializeMedia = async (isCaller) => {
+    try {
+      console.log('Initializing media');
+      const stream = await WebRTCService.getUserMedia();
+      streamRef.current = stream;
+      
+      if (myVideoRef.current) {
+        myVideoRef.current.srcObject = stream;
       }
+      
+      setLocalStreamReady(true);
+      
+      if (isCaller) {
+        WebRTCService.addLocalStreamTracks();
+        await WebRTCService.createAndSendOffer();
+      } else {
+        WebRTCService.addLocalStreamTracks();
+      }
+    } catch (error) {
+      console.error('Error accessing camera/microphone:', error);
+      setErrorMessage('Could not access camera or microphone. Please check permissions.');
     }
   };
 
+  // Initialize WebRTC connection
   useEffect(() => {
-    if (!user || !socket) {
+    if (!user || !socket || !call) return;
+
+    console.log("Call state changed:", call);
+
+    const isCaller = call.type === 'outgoing';
+    const remoteUser = isCaller 
+      ? selecteduser 
+      : (call && call.user ? call.user : null);
+
+    if (!remoteUser) {
+      console.error('Remote user information not available');
       return;
     }
-    
-    let isCaller = call && call.type === 'outgoing';
-    let remoteUserId = isCaller ? selecteduser._id : (call && call.user && call.user._id);
-    
-    if (!remoteUserId) {
-      return;
-    }
 
-    // Clean up any previous connection
-    if (pcRef.current) {
-      pcRef.current.close();
-      pcRef.current = null;
-    }
-    
-    // Clear the ICE candidate queue
-    iceCandidateQueue.current = [];
+    // Only initialize if we don't already have a connection
+    // This prevents the connection from being recreated when call.type changes to 'in-call'
+    if (!WebRTCService.peerConnection) {
+      console.log(`Initializing WebRTC as ${isCaller ? 'caller' : 'callee'}`);
 
-    // Create new RTCPeerConnection
-    const pc = new RTCPeerConnection(rtcConfiguration);
-    pcRef.current = pc;
-
-    // Debug connection state changes
-    pc.onconnectionstatechange = () => {
-      console.log("Connection state changed:", pc.connectionState);
-    };
-
-    pc.oniceconnectionstatechange = () => {
-      console.log("ICE connection state:", pc.iceConnectionState);
-    };
-
-    pc.onsignalingstatechange = () => {
-      console.log("Signaling state:", pc.signalingState);
-    };
-
-    // Handle incoming media tracks
-    pc.ontrack = (event) => {
-      console.log("Track received:", event.track.kind);
-      if (userVideoRef.current && event.streams[0]) {
-        userVideoRef.current.srcObject = event.streams[0];
-      }
-    };
-
-    // Handle ICE candidates
-    pc.onicecandidate = (event) => {
-      if (event.candidate) {
-        console.log("Sending ICE candidate");
-        socket.emit('ice-candidate', {
-          to: remoteUserId,
-          from: user._id,
-          candidate: event.candidate,
-        });
-      }
-    };
-
-    // Caller logic
-    if (isCaller) {
-      navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-        .then((stream) => {
-          console.log("Got local stream with tracks:", stream.getTracks().map(t => t.kind).join(', '));
-          streamRef.current = stream;
-          
-          if (myVideoRef.current) {
-            myVideoRef.current.srcObject = stream;
-          }
-          
-          if (!pc || pc.signalingState === 'closed') return;
-          
-          // Add tracks to the peer connection
-          stream.getTracks().forEach(track => {
-            pc.addTrack(track, stream);
-          });
-          
-          // Create and send offer
-          return pc.createOffer();
-        })
-        .then((offer) => {
-          if (!pc || pc.signalingState === 'closed') return;
-          console.log("Setting local description (offer)");
-          return pc.setLocalDescription(offer);
-        })
-        .then(() => {
-          if (!pc || pc.signalingState === 'closed') return;
-          
-          console.log("Sending call offer");
-          socket.emit('call-user', {
-            to: remoteUserId,
-            from: user._id,
-            name: user.name,
-            profileImg: user.profileImg || '',
-            signal: pc.localDescription,
-          });
-          
-          startCallTimeout();
-        })
-        .catch((error) => {
-          console.error("Error in caller setup:", error);
-        });
-    }
-
-    // Handle incoming call signal (for callee)
-    const handleIncomingCallSignal = async (signal) => {
-      if (!isCaller && signal) {
-        if (pc.signalingState === 'closed') {
-          return;
+      // Initialize WebRTC service
+      WebRTCService.initialize(socket, user, remoteUser, isCaller);
+      
+      // Handle connection state changes
+      WebRTCService.onConnectionStateChange((state) => {
+        console.log(`Connection state changed to: ${state}`);
+        setConnectionState(state);
+        if (state === 'connected' || state === 'completed') {
+          startCallDurationTimer();
         }
+      });
+      
+      // Handle remote video
+      WebRTCService.onTrack((stream) => {
+        console.log('Remote track received, setting to video element');
+        if (userVideoRef.current) {
+          userVideoRef.current.srcObject = stream;
+        }
+      });
+
+      // Setup socket event handlers directly in the component
+      const handleIncomingCall = async (data) => {
+        if (!isCaller && data && data.signal) {
+          try {
+            console.log('Received incoming call signal');
+            
+            // Initialize media first
+            await initializeMedia(false);
+            
+            // Handle the offer
+            await WebRTCService.handleRemoteOffer(data.signal);
+            
+          } catch (error) {
+            console.error('Error handling incoming call:', error);
+            setErrorMessage('Failed to establish connection');
+          }
+        }
+      };
+      
+      const handleCallAnswered = async (data) => {
+        if (isCaller && data && data.signal) {
+          try {
+            console.log('Call was answered, processing answer');
+            await WebRTCService.handleRemoteAnswer(data.signal);
+          } catch (error) {
+            console.error('Error handling call answer:', error);
+            setErrorMessage('Failed to establish connection after answer');
+          }
+        }
+      };
+      
+      const handleIceCandidate = async (data) => {
+        if (data && data.candidate) {
+          try {
+            console.log('Received ICE candidate');
+            await WebRTCService.handleRemoteIceCandidate(data.candidate);
+          } catch (error) {
+            console.error('Error handling ICE candidate:', error);
+          }
+        }
+      };
+
+      // Add socket event listeners
+      socket.on('incoming-call', handleIncomingCall);
+      socket.on('call-answered', handleCallAnswered);
+      socket.on('ice-candidate', handleIceCandidate);
+
+      // For caller, initialize media immediately
+      if (isCaller) {
+        initializeMedia(true);
+      }
+
+      // If this is the callee, register window functions for pending signals
+      if (!isCaller) {
+        window.handleIncomingCallSignal = (signal) => {
+          handleIncomingCall({ signal });
+        };
         
-        try {
-          console.log("Processing incoming call signal");
-          
-          // Get user media
-          const stream = await navigator.mediaDevices.getUserMedia({ 
-            video: true, 
-            audio: true 
-          });
-          
-          console.log("Got local stream with tracks:", stream.getTracks().map(t => t.kind).join(', '));
-          streamRef.current = stream;
-          
-          if (myVideoRef.current) {
-            myVideoRef.current.srcObject = stream;
+        window.handleCallAnsweredSignal = (signal) => {
+          handleCallAnswered({ signal });
+        };
+        
+        window.handleIceCandidateSignal = (candidate) => {
+          handleIceCandidate({ candidate });
+        };
+        
+        // Process any signals that arrived before component mounted
+        processPendingSignals();
+      }
+
+      // Cleanup function
+      return () => {
+        if (!call) {
+          // Only clean up if call is null (call ended)
+          console.log('Cleaning up video call component');
+          WebRTCService.close();
+          if (streamRef.current) {
+            streamRef.current.getTracks().forEach((track) => track.stop());
+            streamRef.current = null;
           }
-          
-          // Add tracks to the peer connection
-          stream.getTracks().forEach(track => {
-            pc.addTrack(track, stream);
-          });
-          
-          // Set remote description
-          console.log("Setting remote description (offer)");
-          await pc.setRemoteDescription(new RTCSessionDescription(signal));
-          
-          // Process any queued ICE candidates now that remote description is set
-          await processIceCandidateQueue();
-          
-          // Create and set local description (answer)
-          console.log("Creating answer");
-          const answer = await pc.createAnswer();
-          
-          console.log("Setting local description (answer)");
-          await pc.setLocalDescription(answer);
-          
-          // Send answer
-          console.log("Sending call answer");
-          socket.emit('answer-call', {
-            to: remoteUserId,
-            from: user._id,
-            signal: answer,
-          });
-          
-        } catch (error) {
-          console.error("Error handling incoming call:", error);
+          setLocalStreamReady(false);
         }
-      }
-    };
+      };
+    }
 
-    // Handle call answered signal (for caller)
-    const handleCallAnsweredSignal = async (signal) => {
-      if (isCaller && signal) {
-        try {
-          console.log("Processing call answered signal");
-          console.log("Setting remote description (answer)");
-          await pc.setRemoteDescription(new RTCSessionDescription(signal));
-          
-          // Process any queued ICE candidates now that remote description is set
-          await processIceCandidateQueue();
-          
-        } catch (error) {
-          console.error("Error setting remote description:", error);
-        }
-      }
-    };
+    // This important line guarantees we only depend on call's existence, not its internal properties
+    // This prevents the effect from re-running when call.type changes to 'in-call'
+  }, [user, socket, selecteduser, call]); // <--- Only depend on call, not Boolean(call) or call.type
 
-    // Handle ICE candidate (for both caller and callee)
-    const handleIceCandidateSignal = async (candidate) => {
-      if (candidate) {
-        try {
-          // If remote description is set, add candidate immediately
-          if (pc.remoteDescription) {
-            console.log("Adding ICE candidate directly");
-            await pc.addIceCandidate(new RTCIceCandidate(candidate));
-          } else {
-            // Otherwise queue the candidate for later
-            console.log("Queueing ICE candidate for later");
-            iceCandidateQueue.current.push(candidate);
-          }
-        } catch (error) {
-          console.error("Error handling ICE candidate:", error);
-        }
-      }
-    };
-
-    // Attach handlers to window for UserAuthStore to call
-    window.handleIncomingCallSignal = handleIncomingCallSignal;
-    window.handleCallAnsweredSignal = handleCallAnsweredSignal;
-    window.handleIceCandidateSignal = handleIceCandidateSignal;
-
-    // Process any signals that arrived before component mounted
-    processPendingSignals();
-
-    // Cleanup function
-    return () => {
-      if (pc) {
-        pc.close();
-      }
-      
-      // Remove window handlers
-      delete window.handleIncomingCallSignal;
-      delete window.handleCallAnsweredSignal;
-      delete window.handleIceCandidateSignal;
-      
-      // Stop media tracks
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach((track) => track.stop());
-        streamRef.current = null;
-      }
-      
-      // Clear timers
-      clearInterval(timerInterval.current);
-      
-      // Clear queue
-      iceCandidateQueue.current = [];
-    };
-  }, [socket, user, selecteduser, call]); // Add proper dependencies here
+  // React to call.type changes here, but DO NOT clean up WebRTC here!
+  // For example, update UI or timers.
+  useEffect(() => {
+    // Handle call type changes (e.g., incoming to ongoing)
+    if (call) {
+      console.log(`Call type changed to: ${call.type}`);
+      // You can add additional logic here if needed
+    }
+  }, [call?.type]);
 
   const handleEndCall = () => {
     if (call && call.user && call.user._id) {
@@ -307,16 +202,15 @@ const Videocall = () => {
   };
 
   useEffect(() => {
-    if (!call) {
+    // Only navigate away if the component has been fully initialized
+    // and there's no call object
+    if (isInitializedRef.current && !call) {
       navigate('/');
+    } else if (call) {
+      // Mark as initialized once we have a call object
+      isInitializedRef.current = true;
     }
   }, [call, navigate]);
-
-  useEffect(() => {
-    if (call && call.type === 'in-call' && callStatus === 'connected') {
-      startCallDurationTimer();
-    }
-  }, [call, callStatus, startCallDurationTimer]);
 
   const formatTime = (seconds) => {
     const m = Math.floor(seconds / 60).toString().padStart(2, '0');
@@ -339,16 +233,30 @@ const Videocall = () => {
         onError={(e) => console.error("Remote video error:", e)}
       />
 
+      {/* Error message display */}
+      {errorMessage && (
+        <div className="error-overlay">
+          <p className="error-message">{errorMessage}</p>
+          <button onClick={handleEndCall}>End Call</button>
+        </div>
+      )}
+
       {/* Top Info Bar */}
       <div className="top-bar">
-        <img src={remoteProfile || '/src/assets/avatar.jpg'} alt="User" className="user-avatar" />
+        <img src={remoteProfile || '/avatar.jpg'} alt="User" className="user-avatar" />
         <span className="user-name">{remoteName}</span>
         <div className="call-info">
           <span className="call-status">
-            {callStatus === 'connected' ? '🟢 Connected' : callStatus === 'ringing' ? '📞 Calling...' : ''}
+            {connectionState === 'connected' || connectionState === 'completed' 
+              ? '🟢 Connected' 
+              : callStatus === 'ringing' 
+                ? '📞 Calling...' 
+                : `🔄 ${connectionState}`}
           </span>
           <span className="call-timer">
-            {callStatus === 'connected' ? formatTime(callDuration) : formatTime(timer)}
+            {(connectionState === 'connected' || connectionState === 'completed') 
+              ? formatTime(callDuration) 
+              : '00:00'}
           </span>
         </div>
       </div>
