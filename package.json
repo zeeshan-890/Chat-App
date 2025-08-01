@@ -8,8 +8,8 @@
   },
   "scripts": {
     "build": "cd client && npm install && npm run build && cd ../server && npm install",
-    "start": "npm start --prefix server",
-    // "heroku-postbuild": "cd client && npm install && npm run build && cd ../server && npm install"
+    "start": "npm start --prefix server"
+   
   },
   "author": "",
   "license": "ISC",
