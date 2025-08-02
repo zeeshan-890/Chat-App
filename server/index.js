@@ -90,8 +90,8 @@ app.get('/api/ice', async (req, res) => {
   console.log('Fetching ICE servers');
 
 
-  const accountSid = 'ACebf25cb636ea07809563c50a14d3bbc5';
-  const authToken = '20b9313d761711232e8ba20c964d7031';
+  const accountSid = process.env.TWILIO_ACCOUNT_SID  //'ACebf25cb636ea07809563c50a14d3bbc5';
+  const authToken = process.env.TWILIO_AUTH_TOKEN  //'20b9313d761711232e8ba20c964d7031';
   const client = twilio(accountSid, authToken);
 
 
