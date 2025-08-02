@@ -27,7 +27,8 @@
     "mongoose": "^8.0.0",
     "peer": "^1.0.2",
     "peerjs": "^1.5.5",
-    "socket.io": "^4.8.1"
+    "socket.io": "^4.8.1",
+    "twilio": "^5.8.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.0"

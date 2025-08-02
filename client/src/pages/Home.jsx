@@ -7,6 +7,7 @@ import Welcomechat from '../componenets/Welcomechat';
 import { userauthstore } from '../Store/UserAuthStore';
 import Mainchat from '../componenets/Mainchat';
 import IncomingCallModal from '../componenets/IncomingCallModal';
+import axiosInstance from '../Store/AxiosInstance';
 
 
 const Home = () => {
@@ -23,8 +24,22 @@ const Home = () => {
         }
     }, [user, peer, initPeer]);
 
+    // const handleGetIceServers = async () => {
+    //     try {
+    //         console.log('Fetching ICE servers...');
+    //         const response = await axiosInstance.get('/ice');
+    //         const data = response.data;
+    //         console.log('ICE Servers:', data);
+    //     } catch (error) {
+    //         console.error('Error fetching ICE servers:', error);
+    //     }
+    // };
+
+
+
     return (
         <div className='signupbody'>
+            {/* <button onClick={handleGetIceServers}>Get ICE Servers</button> */}
             <IncomingCallModal />
 
             <div className="homesec">

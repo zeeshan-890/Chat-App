@@ -1,4 +1,5 @@
 import { config } from 'dotenv';
+import twilio from "twilio";
 config();
 
 import fileUpload from 'express-fileupload';
@@ -32,7 +33,8 @@ const peerServer = ExpressPeerServer(server, {
   // ssl: { key: fs.readFileSync('key.pem'), cert: fs.readFileSync('cert.pem') }
 });
 
-console.log(`Started PeerServer ${peerServer}`);
+
+
 
 app.use('/peerjs', peerServer);
 
@@ -45,6 +47,8 @@ mongoose.connect(process.env.Mongo_Url).then(() => {
 }).catch((err) => {
   console.error('Error connecting to MongoDB:', err)
 })
+
+
 
 // ES module equivalent of __dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -79,6 +83,27 @@ app.use(express.json())
 app.use(fileUpload());
 app.use(express.urlencoded({ extended: true }))
 app.use(cookieParser())
+
+
+
+app.get('/api/ice', async (req, res) => {
+  console.log('Fetching ICE servers');
+
+
+  const accountSid = 'ACebf25cb636ea07809563c50a14d3bbc5';
+  const authToken = '20b9313d761711232e8ba20c964d7031';
+  const client = twilio(accountSid, authToken);
+
+
+  const token = await client.tokens.create();
+
+  console.log("token created:", token);
+  res.json({
+    iceServers: token.iceServers,
+  });
+});
+
+
 
 // app.use('/peerjs', peerServer);
 

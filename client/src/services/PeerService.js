@@ -1,10 +1,12 @@
 import axios from 'axios';
 import Peer from 'peerjs';
 
+import axiosInstance from '../Store/AxiosInstance';
+
 let peer = null;
 let currentCall = null;
 
-export async function createPeer(id) {
+export function createPeer(id) {
     console.log('[PeerService] Creating Peer with id:', id);
 
     // const api_key = 'oAxlSrhVbo5_2yYdezSH7feFWoFBpfNpgoT-Ty8hcJudYg_n';
@@ -14,7 +16,20 @@ export async function createPeer(id) {
     //     `https://${appname}.metered.live/api/v1/turn/credentials?apiKey=${api_key}`
     // );
     // console.log('[PeerService] TURN server credentials:', turn.data);
+    const iceServers = []
 
+    const data = axiosInstance.get('/ice')
+        .then(response => {
+            console.log('[PeerService] ICE servers fetched:', response.data);
+            iceServers.push(...response.data.iceServers);
+            return iceServers;
+        })
+        .catch(error => {
+            console.error('[PeerService] Error fetching ICE servers:', error);
+            return [];
+        });
+
+    console.log('[PeerService] ICE servers:', iceServers.iceServers);
 
     // Use window.location for production, localhost for dev
     const isProd = window.location.hostname !== 'localhost';
@@ -23,32 +38,15 @@ export async function createPeer(id) {
         port: isProd ? (window.location.port || 443) : 3000,
         path: '/peerjs',
         secure: isProd, // true for https, false for local dev
-        // config: {
-        //     iceServers: [
-        //         { urls: 'stun:stun.l.google.com:19302' },
+        debug: 3, // Set to 0 for no logs, 3 for verbose
+        config: {
+            iceServers: iceServers.iceServers
+        }
 
-        //         {
-        //             urls: "stun:relay.metered.ca:80"
-        //         },
-        //         {
-        //             urls: "turn:relay.metered.ca:80",
-        //             username: "7c6e2dfc7ba5dd33578fc9e1",
-        //             credential: "18GkZDVEKpCweYAf"
-        //         },
-        //         {
-        //             urls: "turn:relay.metered.ca:443",
-        //             username: "7c6e2dfc7ba5dd33578fc9e1",
-        //             credential: "18GkZDVEKpCweYAf"
-        //         },
-        //         {
-        //             urls: "turn:relay.metered.ca:443?transport=tcp",
-        //             username: "7c6e2dfc7ba5dd33578fc9e1",
-        //             credential: "18GkZDVEKpCweYAf"
-        //         }
-        //     ]
 
-        // }
     });
+
+    console.log('[PeerService] Peer created:', peer);
 
     peer.on('open', (pid) => {
         console.log('[PeerService] PeerJS open with id:', pid);
