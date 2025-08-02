@@ -6,14 +6,26 @@ import Loader from './Loader';
 
 const IncomingCallModal = () => {
   const navigate = useNavigate();
-  const { incomingCall, answerCall, rejectCall, callStatus } = userauthstore();
+  const incomingCall = userauthstore(state => state.incomingCall);
+  const answerCall = userauthstore(state => state.answerCall);
+  const rejectCall = userauthstore(state => state.rejectCall);
+  const callStatus = userauthstore(state => state.callStatus);
+  // const localStream = userauthstore(state => state.localStream);
 
-  if (!incomingCall) return null;
+  console.log('IncomingCallModal incomingCall:', incomingCall);
+  console.log('callStatus:', callStatus);
+
+  // console.log('answerCall:', answerCall, typeof answerCall);
+  // console.log('rejectCall:', rejectCall, typeof rejectCall);
+
+  if (!incomingCall || !incomingCall.signal) return null;
 
   const handleAnswer = () => {
-    // Pass the signal data to the store
-    answerCall(incomingCall.signal, incomingCall.from);
-    navigate('/videocall');
+    console.log('[IncomingCallModal] Answer clicked');
+    // Pass the PeerJS call object and caller's peerId
+    answerCall(incomingCall.signal, incomingCall.from, navigate);
+    console.log('[IncomingCallModal] Navigating to /videocall');
+    // navigate('/videocall');
   };
 
   const handleReject = () => {
@@ -28,10 +40,10 @@ const IncomingCallModal = () => {
           <div className="ringing-dot"></div>
           <div className="ringing-dot"></div>
         </div>
-        <img 
-          src={incomingCall.profileImg || '/avatar.jpg'} 
-          alt="profile" 
-          className="caller-avatar" 
+        <img
+          src={incomingCall.profileImg || '/avatar.jpg'}
+          alt="profile"
+          className="caller-avatar"
         />
         <h2 className="call-title">{incomingCall.name} is calling...</h2>
         <p className="call-subtitle">📞 Incoming video call</p>
@@ -48,4 +60,4 @@ const IncomingCallModal = () => {
   );
 };
 
-export default IncomingCallModal; 
+export default IncomingCallModal;

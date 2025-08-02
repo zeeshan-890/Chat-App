@@ -11,16 +11,22 @@ import IncomingCallModal from '../componenets/IncomingCallModal';
 
 const Home = () => {
 
-    const { setselecteduser, selecteduser } = userauthstore()
+    const { setselecteduser, selecteduser, user, peer, initPeer } = userauthstore()
 
     useEffect(() => {
         setselecteduser(null)
     }, [])
 
+    useEffect(() => {
+        if (user && !peer) {
+            initPeer(user._id);
+        }
+    }, [user, peer, initPeer]);
+
     return (
         <div className='signupbody'>
             <IncomingCallModal />
-            
+
             <div className="homesec">
                 {/* Show Left Sidebar only if screen is large or no user selected */}
                 <div className={`leftside ${selecteduser ? 'hide-on-mobile' : ''}`}>

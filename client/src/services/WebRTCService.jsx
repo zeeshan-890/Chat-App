@@ -3,23 +3,63 @@
  */
 
 const STUN_SERVERS = [
-  'stun:stun.l.google.com:19302',
-  'stun:stun1.l.google.com:19302',
-  'stun:stun2.l.google.com:19302'
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'stun:stun1.l.google.com:19302' },
+  { urls: 'stun:stun2.l.google.com:19302' },
+  { urls: 'stun:stun3.l.google.com:19302' },
+  { urls: 'stun:stun4.l.google.com:19302' },
+  { urls: 'stun:stun.ekiga.net' },
+  { urls: 'stun:stun.ideasip.com' },
+  { urls: 'stun:stun.rixtelecom.se' },
+  { urls: 'stun:stun.schlund.de' },
+  { urls: 'stun:stunprotocol.org:3478' },
+  { urls: 'stun:stun.voiparound.com' },
+  { urls: 'stun:stun.voipbuster.com' },
+  { urls: 'stun:stun.voipstunt.com' },
+  { urls: 'stun:stun.voxgratia.org' },
+  // ...add more as needed, following the same pattern
 ];
 
-const TURN_SERVERS = [
-  {
-    urls: 'turn:openrelay.metered.ca:80',
-    username: 'openrelayproject',
-    credential: 'openrelayproject'
-  },
-  {
-    urls: 'turn:openrelay.metered.ca:443',
-    username: 'openrelayproject',
-    credential: 'openrelayproject'
-  }
-];
+
+// const TURN_SERVERS = [
+// //   {
+// //     urls: 'turn:openrelay.metered.ca:80',
+// //     username: 'openrelayproject',
+// //     credential: 'openrelayproject'
+// //   },
+// //   {
+// //     urls: 'turn:openrelay.metered.ca:443',
+// //     username: 'openrelayproject',
+// //     credential: 'openrelayproject'
+// //   }
+
+
+// {
+//     url: 'turn:numb.viagenie.ca',
+//     credential: 'muazkh',
+//     username: 'webrtc@live.com'
+// },
+// {
+//     url: 'turn:192.158.29.39:3478?transport=udp',
+//     credential: 'JZEOEt2V3Qb0y27GRntt2u2PAYA=',
+//     username: '28224511:1379330808'
+// },
+// {
+//     url: 'turn:192.158.29.39:3478?transport=tcp',
+//     credential: 'JZEOEt2V3Qb0y27GRntt2u2PAYA=',
+//     username: '28224511:1379330808'
+// },
+// {
+//     url: 'turn:turn.bistri.com:80',
+//     credential: 'homeo',
+//     username: 'homeo'
+//  },
+//  {
+//     url: 'turn:turn.anyfirewall.com:443?transport=tcp',
+//     credential: 'webrtc',
+//     username: 'webrtc'
+// }
+// ];
 
 // Helper to detect mobile devices
 const isMobile = () => {
@@ -52,8 +92,8 @@ class WebRTCService {
     // Create a new peer connection with enhanced config
     this.peerConnection = new RTCPeerConnection({
       iceServers: [
-        { urls: STUN_SERVERS },
-        ...TURN_SERVERS
+        ...STUN_SERVERS,
+        // ...TURN_SERVERS
       ],
       iceCandidatePoolSize: 10,
       sdpSemantics: 'unified-plan',

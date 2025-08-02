@@ -12,7 +12,10 @@
     "start": "cd server && npm start",
     "dev": "concurrently \"cd server && npm run dev\" \"cd client && npm run dev\""
   },
-  "dependencies": {},
+  "dependencies": {
+    "peer": "^1.0.2",
+    "peerjs": "^1.5.5"
+  },
   "devDependencies": {
     "concurrently": "^8.2.0"
   }

@@ -13,6 +13,32 @@ import userroute from './routes/user.js';
 import msgroute from './routes/message.js';
 import { checkauth } from './middlewares/checkauth.js';
 import cookieParser from 'cookie-parser';
+import { ExpressPeerServer } from 'peer';
+import { log } from 'console';
+
+// const peerServer = PeerServer({ port: 9000, path: '/peerjs' });
+// console.log(`Started PeerServer on ::, port: 9000, path: /peerjs`);
+// peerServer.on('connection', (client) => {
+//   console.log(`PeerServer connected: ${client.id}`);
+// });
+
+const peerServer = ExpressPeerServer(server, {
+  path: '/',
+  secure: true, // use HTTPS in production
+  debug: false,
+  allow_discovery: true,
+  // port: 3000, // Use the same port as your server or specify a different one
+  // Add SSL options here if using HTTPS directly
+  // ssl: { key: fs.readFileSync('key.pem'), cert: fs.readFileSync('cert.pem') }
+});
+
+console.log(`Started PeerServer ${peerServer}`);
+
+app.use('/peerjs', peerServer);
+
+peerServer.on('connection', (client) => {
+  console.log(`PeerServer connected: ${client.id}`);
+});
 
 mongoose.connect(process.env.Mongo_Url).then(() => {
   console.log('Connected to MongoDB')
@@ -53,6 +79,8 @@ app.use(express.json())
 app.use(fileUpload());
 app.use(express.urlencoded({ extended: true }))
 app.use(cookieParser())
+
+// app.use('/peerjs', peerServer);
 
 // API routes FIRST (before static files)
 app.use('/api/user', userroute)

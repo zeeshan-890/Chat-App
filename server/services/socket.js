@@ -1,6 +1,7 @@
 import { Server } from "socket.io";
 import http from 'http';
 import express from 'express';
+import { PeerServer } from 'peer';
 
 const app = express();
 const server = http.createServer(app);
@@ -10,6 +11,8 @@ const io = new Server(server, {
         credentials: true
     }
 });
+
+
 
 // Only keep this startup log
 console.log(`Socket.io server created with CORS origin: ${process.env.CLIENT_URL || 'http://localhost:5173'}`);

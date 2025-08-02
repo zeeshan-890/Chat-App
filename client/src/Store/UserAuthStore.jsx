@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import axiosInstance from './AxiosInstance'
 import toast from 'react-hot-toast'
 import { io } from 'socket.io-client'
+import { createPeer, getPeer, closeCall, answerCall as peerAnswerCall } from '../services/PeerService';
 
 const BASE_URl = import.meta.env.MODE === 'development' ? 'http://localhost:3000' : '/'
 
@@ -37,23 +38,39 @@ export const userauthstore = create((set, get) => ({
     callTimeout: null, // Timeout for auto-ending calls
     ringtone: null, // Audio element for ringtone
     pendingSignals: [], // Initialize as empty array to prevent "not iterable" errors
+    peerId: null,
+    peer: null,
+    peerCall: null,
+    remoteStream: null,
+    localStream: null,
+
+    setPeerCall: (call) => {
+        console.log('[UserAuthStore] setPeerCall called:', call);
+        set({ peerCall: call });
+    },
+
+    setLocalStream: (stream) => set({ localStream: stream }),
 
     setIncomingCall: (data) => {
+        console.log('[UserAuthStore] setIncomingCall called:', data);
         set({ incomingCall: data });
         get().playRingtone();
     },
     setselecteduser: (data) => {
+        console.log('[UserAuthStore] setselecteduser called:', data);
         set({ selecteduser: data })
     },
 
     setsearcheduser: (data) => {
+        console.log('[UserAuthStore] setsearcheduser called:', data);
         set({ searcheduser: data })
     },
 
     // Process pending signals when component is ready
     processPendingSignals: () => {
         const { pendingSignals } = get();
-        
+        console.log('[UserAuthStore] processPendingSignals called. pendingSignals:', pendingSignals);
+
         // Defensive check to ensure pendingSignals is iterable
         if (!pendingSignals || !Array.isArray(pendingSignals)) {
             console.warn('pendingSignals is not properly initialized');
@@ -62,7 +79,7 @@ export const userauthstore = create((set, get) => ({
         }
 
         console.log(`Processing ${pendingSignals.length} pending signals`);
-        
+
         // Process all pending signals
         pendingSignals.forEach(signal => {
             try {
@@ -85,6 +102,7 @@ export const userauthstore = create((set, get) => ({
     // Start auto-end timer for outgoing calls
     startCallTimeout: () => {
         const { call } = get();
+        console.log('[UserAuthStore] startCallTimeout called. call:', call);
         if (!call || call.type !== 'outgoing') return;
 
         const timeout = setTimeout(() => {
@@ -101,6 +119,7 @@ export const userauthstore = create((set, get) => ({
     // Start call duration timer (from answer to end)
     startCallDurationTimer: () => {
         const { callDurationInterval } = get();
+        console.log('[UserAuthStore] startCallDurationTimer called. callDurationInterval:', callDurationInterval);
 
         // Clear existing interval if any
         if (callDurationInterval) {
@@ -116,30 +135,31 @@ export const userauthstore = create((set, get) => ({
 
     // Ringtone functions
     playRingtone: (prime = false) => {
+        console.log('[UserAuthStore] playRingtone called. prime:', prime);
         try {
             let { ringtone } = get();
-            
+
             // Create audio element if it doesn't exist
             if (!ringtone) {
                 ringtone = new Audio();
-                
+
                 // Set audio properties before assigning source
                 ringtone.loop = true;
                 ringtone.volume = 0.7;
                 ringtone.preload = 'auto';
-                
+
                 // Set source - use a simple tone file
                 ringtone.src = `/sounds/ringtone.mp3`;
-                
+
                 // Save the audio element
                 set({ ringtone });
             }
-            
+
             // Play with error handling
             try {
                 ringtone.currentTime = 0;
                 const playPromise = ringtone.play();
-                
+
                 if (playPromise !== undefined) {
                     playPromise.then(() => {
                         if (prime) {
@@ -158,6 +178,7 @@ export const userauthstore = create((set, get) => ({
     },
 
     stopRingtone: () => {
+        console.log('[UserAuthStore] stopRingtone called.');
         const { ringtone } = get();
         if (ringtone) {
             ringtone.pause();
@@ -167,78 +188,121 @@ export const userauthstore = create((set, get) => ({
 
     // Call actions
     startCall: (callee) => {
-        const { user, onlineusers } = get()
+        const { user, onlineusers, socket } = get();
         if (!user || !callee) return;
 
-        // Check if user is online and show warning but still allow call
         if (!onlineusers.includes(callee._id)) {
             toast.error(`${callee.name} appears to be offline, but you can still try calling`);
         }
 
-        // Don't emit call-user here - the Videocall component will handle WebRTC signaling
         set({
             call: { type: 'outgoing', user: callee, started: Date.now() },
             callTimer: 0,
             callStatus: 'ringing'
         });
-    },
-    answerCall: (signal, from) => {
-        // Stop ringtone when call is answered
-        get().stopRingtone();
 
-        // Don't emit answer-call here - the Videocall component will handle WebRTC signaling
+        // Emit call-user event to callee
+        if (socket) {
+            socket.emit('call-user', {
+                to: callee._id,
+                from: user._id,
+                name: user.name,
+                profileImg: user.profileImg
+            });
+        }
+
+        get().startCallTimeout();
+    },
+    answerCall: (callObj, fromPeerId, navigate) => {
+        console.log('[UserAuthStore] answerCall called. callObj:', callObj);
+        const { user, socket } = get();
         set({
-            call: { type: 'in-call', user: { _id: from }, started: Date.now() },
+            callStatus: 'connected',
+            call: {
+                type: 'in-call',
+                user: { _id: fromPeerId, name: callObj.metadata?.name || 'Unknown', profileImg: callObj.metadata?.profileImg || '/avatar.jpg' },
+                peerId: fromPeerId,
+                started: Date.now()
+            },
+            peerCall: callObj,
             incomingCall: null,
-            callTimer: 0,
-            callDuration: 0,
-            callStatus: 'connected'
+        });
+
+        // Emit answer-call event to caller
+        if (socket) {
+            socket.emit('answer-call', { to: fromPeerId, from: user?._id });
+        }
+
+        navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+            .then(localStream => {
+                callObj.answer(localStream);
+                callObj.on('stream', remoteStream => {
+                    set({ remoteStream });
+                });
+                navigate('/videocall');
+                get().startCallDurationTimer();
+                get().stopCallTimeout();
+                get().stopRingtone();
+            })
+            .catch(err => {
+                toast.error('Could not access camera/microphone. Please check permissions.');
+                set({
+                    call: null,
+                    callStatus: null,
+                    peerCall: null,
+                    incomingCall: null,
+                });
+                closeCall();
+            });
+    },
+
+    rejectCall: (fromPeerId) => {
+        const { socket, user } = get();
+        // Emit call-rejected event to caller
+        if (socket) socket.emit('call-rejected', { to: fromPeerId, from: user?._id });
+        get().cleanupMediaStreams();
+        get().stopCallDurationTimer();
+        get().stopCallTimeout();
+        closeCall();
+        set({
+            call: null,
+            callStatus: null,
+            peerCall: null,
+            incomingCall: null,
+            remoteStream: null,
         });
     },
-    rejectCall: (from) => {
-        // Stop ringtone when call is rejected
-        get().stopRingtone();
-
-        const { socket } = get();
-        if (!socket) return;
-        socket.emit('call-rejected', { to: from });
-        set({ incomingCall: null, call: null });
-    },
     endCall: (to) => {
-        // Stop ringtone when call ends
+        const { socket, user } = get();
         get().stopRingtone();
-
-        const { socket, callTimeout, callDurationInterval } = get();
-        if (socket && to) socket.emit('end-call', { to });
-
-        // Clear timeout if exists
-        if (callTimeout) {
-            clearTimeout(callTimeout);
-        }
-
-        // Clear duration interval if exists
-        if (callDurationInterval) {
-            clearInterval(callDurationInterval);
-        }
-
-
+        get().stopCallDurationTimer();
+        get().stopCallTimeout();
+        get().cleanupMediaStreams();
+        // Emit end-call event to peer
+        if (socket && to) socket.emit('end-call', { to, from: user?._id });
         set({
             call: null,
             callTimer: 0,
             callDuration: 0,
             callStatus: null,
             callTimeout: null,
-            callDurationInterval: null
+            callDurationInterval: null,
+            peerCall: null,
+            incomingCall: null,
+            remoteStream: null,
         });
+        closeCall();
     },
     // Call timer logic
     startCallTimer: () => {
+        console.log('[UserAuthStore] startCallTimer called.');
         const interval = setInterval(() => {
             set((state) => ({ callTimer: state.callTimer + 1 }));
         }, 1000);
         set({ callInterval: interval });
     },
     stopCallTimer: () => {
+        console.log('[UserAuthStore] stopCallTimer called.');
         const { callInterval } = get();
         if (callInterval) clearInterval(callInterval);
         set({ callInterval: null, callTimer: 0 });
@@ -246,11 +310,12 @@ export const userauthstore = create((set, get) => ({
     // Socket event listeners for call signaling
     setupCallListeners: () => {
         const { socket } = get();
+        console.log('[UserAuthStore] setupCallListeners called. socket:', socket);
         if (!socket) return;
 
         socket.on('incoming-call', (data) => {
-            console.log('Incoming call received:', data);
-            set({ 
+            console.log('[UserAuthStore] Socket incoming-call event:', data);
+            set({
                 incomingCall: data,
                 callStatus: 'ringing'
             });
@@ -264,7 +329,7 @@ export const userauthstore = create((set, get) => ({
         });
 
         socket.on('call-answered', (data) => {
-            console.log('Call answered:', data);
+            console.log('[UserAuthStore] Socket call-answered event:', data);
             // IMPORTANT: Don't change the call object structure here, just update the type
             // This prevents re-renders that might unmount the component
             set((state) => ({
@@ -291,6 +356,7 @@ export const userauthstore = create((set, get) => ({
 
         // Call rejected
         socket.on('call-rejected', () => {
+            console.log('[UserAuthStore] Socket call-rejected event');
             // Stop ringtone
             get().stopRingtone();
 
@@ -306,13 +372,17 @@ export const userauthstore = create((set, get) => ({
                 callStatus: null,
                 callTimeout: null,
                 callDuration: 0,
-                callDurationInterval: null
+                callDurationInterval: null,
+                peerCall: null,
+                incomingCall: null,
+                remoteStream: null,
             });
             toast.error('Call was rejected');
         });
 
         // End call
         socket.on('end-call', () => {
+            console.log('[UserAuthStore] Socket end-call event');
             // Stop ringtone
             get().stopRingtone();
 
@@ -329,15 +399,35 @@ export const userauthstore = create((set, get) => ({
                 callStatus: null,
                 callTimeout: null,
                 callDuration: 0,
-                callDurationInterval: null
+                callDurationInterval: null,
+                peerCall: null,
+                remoteStream: null,
             });
             toast('Call ended');
         });
 
+        socket.on('call-timeout', () => {
+            get().stopRingtone();
+            get().stopCallTimeout();
+            get().stopCallDurationTimer();
+            get().cleanupMediaStreams();
+            set({
+                call: null,
+                incomingCall: null,
+                callStatus: null,
+                callTimeout: null,
+                callDuration: 0,
+                callDurationInterval: null,
+                peerCall: null,
+                remoteStream: null,
+            });
+            toast.error('Call not answered');
+        });
+
         // ICE candidate
         socket.on('ice-candidate', (data) => {
-            console.log('ICE candidate received');
-            
+            console.log('[UserAuthStore] Socket ice-candidate event:', data);
+
             // If we're in a video call component, process the candidate directly
             if (window.handleIceCandidateSignal && data.candidate) {
                 window.handleIceCandidateSignal(data.candidate);
@@ -353,6 +443,7 @@ export const userauthstore = create((set, get) => ({
     // Add message event listeners after setupCallListeners
     setupMessageListeners: () => {
         const { socket } = get();
+        console.log('[UserAuthStore] setupMessageListeners called. socket:', socket);
         if (!socket) return;
 
         // Check if listener already exists
@@ -403,6 +494,7 @@ export const userauthstore = create((set, get) => ({
 
     connectSocket: () => {
         const { user } = get()
+        console.log('[UserAuthStore] connectSocket called. user:', user);
         if (!user || get().socket?.connected) return;
 
         const socket = io(BASE_URl, {
@@ -435,6 +527,7 @@ export const userauthstore = create((set, get) => ({
         socket.on('test-response', () => { });
     },
     disconnectSocket: () => {
+        console.log('[UserAuthStore] disconnectSocket called.');
         const { socket } = get();
         if (socket?.connected) {
             socket.off('newMessage'); // Clean up message listeners
@@ -443,6 +536,7 @@ export const userauthstore = create((set, get) => ({
         set({ socket: null });
     },
     login: async (data, navigate) => {
+        console.log('[UserAuthStore] login called. data:', data);
         try {
             set({ isloggingin: true })
 
@@ -470,7 +564,7 @@ export const userauthstore = create((set, get) => ({
 
     },
     signup: async (data, navigate) => {
-
+        console.log('[UserAuthStore] signup called. data:', data);
         try {
             set({ isSigningup: true })
 
@@ -497,7 +591,7 @@ export const userauthstore = create((set, get) => ({
 
     },
     logout: async (navigate) => {
-
+        console.log('[UserAuthStore] logout called.');
         try {
             set({ islogingout: true })
 
@@ -525,6 +619,7 @@ export const userauthstore = create((set, get) => ({
 
     },
     editprofile: async (data) => {
+        console.log('[UserAuthStore] editprofile called. data:', data);
         set({ isupdatinguser: true })
 
         try {
@@ -552,6 +647,7 @@ export const userauthstore = create((set, get) => ({
     },
 
     checkauth: async () => {
+        console.log('[UserAuthStore] checkauth called.');
         set({ ischeckingauth: true })
         try {
 
@@ -578,6 +674,7 @@ export const userauthstore = create((set, get) => ({
     },
 
     getusersforsidebar: async () => {
+        console.log('[UserAuthStore] getusersforsidebar called.');
         try {
             set({ issettingsidebaruser: true })
 
@@ -594,6 +691,67 @@ export const userauthstore = create((set, get) => ({
             set({ issettingsidebaruser: false })
         }
 
-    }
+    },
+    initPeer: (id) => {
+        console.log('[UserAuthStore] initPeer called. id:', id);
+        const peer = createPeer(id); // from your PeerService.js
+        set({ peer, peerId: id });
+        peer.on('open', (pid) => {
+            console.log('[UserAuthStore] PeerJS open event. pid:', pid);
+            set({ peerId: pid });
+        });
+        peer.on('error', (err) => console.error('PeerJS error:', err));
+
+        peer.on('call', (callObj) => {
+            console.log('[UserAuthStore] PeerJS incoming call event:', callObj);
+            set({
+                incomingCall: {
+                    signal: callObj,
+                    from: callObj.peer,
+                    name: callObj.metadata?.name || 'Unknown',
+                    profileImg: callObj.metadata?.profileImg || '/avatar.jpg'
+                }
+            });
+            get().playRingtone(true);
+        })
+
+    },
+    stopCallTimeout: () => {
+        const { callTimeout } = get();
+        if (callTimeout) clearTimeout(callTimeout);
+        set({ callTimeout: null });
+    },
+
+    stopCallDurationTimer: () => {
+        const { callDurationInterval } = get();
+        if (callDurationInterval) clearInterval(callDurationInterval);
+        set({ callDurationInterval: null, callDuration: 0 });
+    },
+
+    // --- Cleanup Media Streams ---
+    cleanupMediaStreams: () => {
+
+        console.log("cleanup called.........");
+
+        const { remoteStream, peerCall, localStream } = get();
+        if (remoteStream) {
+            try {
+                remoteStream.getTracks().forEach(track => track.stop());
+            } catch { }
+            set({ remoteStream: null });
+        }
+        if (peerCall && peerCall.localStream) {
+            try {
+                peerCall.localStream.getTracks().forEach(track => track.stop());
+            } catch { }
+        }
+        if (localStream) {
+            try {
+                localStream.getTracks().forEach(track => track.stop());
+            } catch { }
+            set({ localStream: null });
+        }
+        set({ peerCall: null });
+    },
 
 }))
