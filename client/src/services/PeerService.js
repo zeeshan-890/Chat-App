@@ -9,13 +9,7 @@ let currentCall = null;
 export function createPeer(id) {
     console.log('[PeerService] Creating Peer with id:', id);
 
-    // const api_key = 'oAxlSrhVbo5_2yYdezSH7feFWoFBpfNpgoT-Ty8hcJudYg_n';
-    // const appname = 'chat-app-video-app-zeeshan-khan';
 
-    // const turn = await axios.get(
-    //     `https://${appname}.metered.live/api/v1/turn/credentials?apiKey=${api_key}`
-    // );
-    // console.log('[PeerService] TURN server credentials:', turn.data);
     const iceServers = []
 
     const data = axiosInstance.get('/ice')
