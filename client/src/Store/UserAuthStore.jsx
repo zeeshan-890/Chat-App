@@ -149,7 +149,7 @@ export const userauthstore = create((set, get) => ({
                 ringtone.preload = 'auto';
 
                 // Set source - use a simple tone file
-                ringtone.src = `/sounds/ringtone.mp3`;
+                ringtone.src = `/ringtone.mp3`;
 
                 // Save the audio element
                 set({ ringtone });
@@ -323,9 +323,9 @@ export const userauthstore = create((set, get) => ({
             get().playRingtone();
 
             // Store the signal for WebRTCService to process
-            set((state) => ({
-                pendingSignals: [...(state.pendingSignals || []), { type: 'incoming-call', data }]
-            }));
+            // set((state) => ({
+            //     pendingSignals: [...(state.pendingSignals || []), { type: 'incoming-call', data }]
+            // }));
         });
 
         socket.on('call-answered', (data) => {
@@ -425,20 +425,20 @@ export const userauthstore = create((set, get) => ({
         });
 
         // ICE candidate
-        socket.on('ice-candidate', (data) => {
-            console.log('[UserAuthStore] Socket ice-candidate event:', data);
+        // socket.on('ice-candidate', (data) => {
+        //     console.log('[UserAuthStore] Socket ice-candidate event:', data);
 
-            // If we're in a video call component, process the candidate directly
-            if (window.handleIceCandidateSignal && data.candidate) {
-                window.handleIceCandidateSignal(data.candidate);
-            } else {
-                // Otherwise queue the candidate for when the component is ready
-                // Use defensive programming to avoid "not iterable" errors
-                set((state) => ({
-                    pendingSignals: [...(state.pendingSignals || []), { type: 'ice-candidate', data }]
-                }));
-            }
-        });
+        //     // If we're in a video call component, process the candidate directly
+        //     if (window.handleIceCandidateSignal && data.candidate) {
+        //         window.handleIceCandidateSignal(data.candidate);
+        //     } else {
+        //         // Otherwise queue the candidate for when the component is ready
+        //         // Use defensive programming to avoid "not iterable" errors
+        //         set((state) => ({
+        //             pendingSignals: [...(state.pendingSignals || []), { type: 'ice-candidate', data }]
+        //         }));
+        //     }
+        // });
     },
     // Add message event listeners after setupCallListeners
     setupMessageListeners: () => {
