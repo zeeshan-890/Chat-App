@@ -23,31 +23,31 @@ export async function createPeer(id) {
         port: isProd ? (window.location.port || 443) : 3000,
         path: '/peerjs',
         secure: isProd, // true for https, false for local dev
-        config: {
-            iceServers: [
-                { urls: 'stun:stun.l.google.com:19302' },
+        // config: {
+        //     iceServers: [
+        //         { urls: 'stun:stun.l.google.com:19302' },
 
-                {
-                    urls: "stun:relay.metered.ca:80"
-                },
-                {
-                    urls: "turn:relay.metered.ca:80",
-                    username: "7c6e2dfc7ba5dd33578fc9e1",
-                    credential: "18GkZDVEKpCweYAf"
-                },
-                {
-                    urls: "turn:relay.metered.ca:443",
-                    username: "7c6e2dfc7ba5dd33578fc9e1",
-                    credential: "18GkZDVEKpCweYAf"
-                },
-                {
-                    urls: "turn:relay.metered.ca:443?transport=tcp",
-                    username: "7c6e2dfc7ba5dd33578fc9e1",
-                    credential: "18GkZDVEKpCweYAf"
-                }
-            ]
+        //         {
+        //             urls: "stun:relay.metered.ca:80"
+        //         },
+        //         {
+        //             urls: "turn:relay.metered.ca:80",
+        //             username: "7c6e2dfc7ba5dd33578fc9e1",
+        //             credential: "18GkZDVEKpCweYAf"
+        //         },
+        //         {
+        //             urls: "turn:relay.metered.ca:443",
+        //             username: "7c6e2dfc7ba5dd33578fc9e1",
+        //             credential: "18GkZDVEKpCweYAf"
+        //         },
+        //         {
+        //             urls: "turn:relay.metered.ca:443?transport=tcp",
+        //             username: "7c6e2dfc7ba5dd33578fc9e1",
+        //             credential: "18GkZDVEKpCweYAf"
+        //         }
+        //     ]
 
-        }
+        // }
     });
 
     peer.on('open', (pid) => {
