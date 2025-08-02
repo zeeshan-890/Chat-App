@@ -251,6 +251,7 @@ const Videocall = () => {
           </span>
         </div>
       </div>
+      {/* Call Controls */}
 
       {/* Call Status Overlay */}
       {callStatus === 'ringing' && (
