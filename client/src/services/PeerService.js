@@ -1,10 +1,20 @@
+import axios from 'axios';
 import Peer from 'peerjs';
 
 let peer = null;
 let currentCall = null;
 
-export function createPeer(id) {
+export async function createPeer(id) {
     console.log('[PeerService] Creating Peer with id:', id);
+
+    // const api_key = 'oAxlSrhVbo5_2yYdezSH7feFWoFBpfNpgoT-Ty8hcJudYg_n';
+    // const appname = 'chat-app-video-app-zeeshan-khan';
+
+    // const turn = await axios.get(
+    //     `https://${appname}.metered.live/api/v1/turn/credentials?apiKey=${api_key}`
+    // );
+    // console.log('[PeerService] TURN server credentials:', turn.data);
+
 
     // Use window.location for production, localhost for dev
     const isProd = window.location.hostname !== 'localhost';
@@ -13,6 +23,31 @@ export function createPeer(id) {
         port: isProd ? (window.location.port || 443) : 3000,
         path: '/peerjs',
         secure: isProd, // true for https, false for local dev
+        config: {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+
+                {
+                    urls: "stun:relay.metered.ca:80"
+                },
+                {
+                    urls: "turn:relay.metered.ca:80",
+                    username: "7c6e2dfc7ba5dd33578fc9e1",
+                    credential: "18GkZDVEKpCweYAf"
+                },
+                {
+                    urls: "turn:relay.metered.ca:443",
+                    username: "7c6e2dfc7ba5dd33578fc9e1",
+                    credential: "18GkZDVEKpCweYAf"
+                },
+                {
+                    urls: "turn:relay.metered.ca:443?transport=tcp",
+                    username: "7c6e2dfc7ba5dd33578fc9e1",
+                    credential: "18GkZDVEKpCweYAf"
+                }
+            ]
+
+        }
     });
 
     peer.on('open', (pid) => {
