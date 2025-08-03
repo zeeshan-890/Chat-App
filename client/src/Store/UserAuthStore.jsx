@@ -498,21 +498,37 @@ export const userauthstore = create((set, get) => ({
         if (!user || get().socket?.connected) return;
 
         const socket = io(BASE_URl, {
-            query: { userId: user._id }
-        })
+            query: { userId: user._id },
+            reconnection: true, // enable auto-reconnect
+            reconnectionAttempts: 10, // try up to 10 times
+            reconnectionDelay: 2000, // wait 2s between attempts
+            reconnectionDelayMax: 10000, // max 10s between attempts
+        });
 
-        socket.connect()
-        set({ socket: socket })
+        socket.connect();
+        set({ socket: socket });
 
         socket.on('connect', () => {
             console.log('Socket connected');
-            // Set up listeners only once when socket connects
             get().setupCallListeners();
             get().setupMessageListeners();
         });
 
-        socket.on('disconnect', () => {
-            console.log('Socket disconnected');
+        socket.on('disconnect', (reason) => {
+            console.log('Socket disconnected:', reason);
+            if (reason === 'io server disconnect') {
+                // The server disconnected us, try to reconnect manually
+                socket.connect();
+            }
+        });
+
+        socket.on('reconnect_attempt', (attempt) => {
+            console.log(`Socket reconnect attempt #${attempt}`);
+        });
+
+        socket.on('reconnect_failed', () => {
+            console.error('Socket failed to reconnect after maximum attempts');
+            toast.error('Connection lost. Please refresh the page.');
         });
 
         socket.on('connect_error', (error) => {
@@ -521,7 +537,7 @@ export const userauthstore = create((set, get) => ({
 
         socket.on('getonline', (userids) => {
             set({ onlineusers: userids })
-        })
+        });
 
         // Test response handler
         socket.on('test-response', () => { });
