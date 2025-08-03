@@ -43,6 +43,7 @@ export const userauthstore = create((set, get) => ({
     peerCall: null,
     remoteStream: null,
     localStream: null,
+    socketMonitorInterval: null, // <-- Add this to your initial state
 
     setPeerCall: (call) => {
         console.log('[UserAuthStore] setPeerCall called:', call);
@@ -492,6 +493,23 @@ export const userauthstore = create((set, get) => ({
         });
     },
 
+    // --- Socket Monitor ---
+    startSocketMonitor: () => {
+        if (get().socketMonitorInterval) return; // Prevent multiple intervals
+        const interval = setInterval(() => {
+            const { socket, connectSocket, user } = get();
+            if (user && (!socket || !socket.connected)) {
+                connectSocket();
+            }
+        }, 1000);
+        set({ socketMonitorInterval: interval });
+    },
+    stopSocketMonitor: () => {
+        const { socketMonitorInterval } = get();
+        if (socketMonitorInterval) clearInterval(socketMonitorInterval);
+        set({ socketMonitorInterval: null });
+    },
+
     connectSocket: () => {
         const { user } = get()
         console.log('[UserAuthStore] connectSocket called. user:', user);
@@ -499,10 +517,10 @@ export const userauthstore = create((set, get) => ({
 
         const socket = io(BASE_URl, {
             query: { userId: user._id },
-            reconnection: true, // enable auto-reconnect
-            reconnectionAttempts: 10, // try up to 10 times
-            reconnectionDelay: 2000, // wait 2s between attempts
-            reconnectionDelayMax: 10000, // max 10s between attempts
+            reconnection: true,
+            reconnectionAttempts: 10,
+            reconnectionDelay: 2000,
+            reconnectionDelayMax: 10000,
         });
 
         socket.connect();
@@ -517,7 +535,6 @@ export const userauthstore = create((set, get) => ({
         socket.on('disconnect', (reason) => {
             console.log('Socket disconnected:', reason);
             if (reason === 'io server disconnect') {
-                // The server disconnected us, try to reconnect manually
                 socket.connect();
             }
         });
@@ -544,30 +561,26 @@ export const userauthstore = create((set, get) => ({
     },
     disconnectSocket: () => {
         console.log('[UserAuthStore] disconnectSocket called.');
-        const { socket } = get();
+        const { socket, stopSocketMonitor } = get();
         if (socket?.connected) {
             socket.off('newMessage'); // Clean up message listeners
             socket.disconnect();
         }
+        stopSocketMonitor();
         set({ socket: null });
     },
     login: async (data, navigate) => {
         console.log('[UserAuthStore] login called. data:', data);
         try {
             set({ isloggingin: true })
-
-
             const res = await axiosInstance.post("/user/login", data)
-
             if (res.status === 200) {
                 set({ user: res.data.user })
                 get().connectSocket()
+                get().startSocketMonitor()
                 toast.success(res.data.message)
                 navigate("/")
-
             }
-
-
         }
         catch (error) {
             toast.error(error.response.data.message || "Server Error")
@@ -576,25 +589,19 @@ export const userauthstore = create((set, get) => ({
         finally {
             set({ isloggingin: false })
         }
-
-
     },
     signup: async (data, navigate) => {
         console.log('[UserAuthStore] signup called. data:', data);
         try {
             set({ isSigningup: true })
-
-
             const res = await axiosInstance.post("/user/sign-up", data)
-
             if (res.status === 200) {
                 set({ user: res.data.user })
                 get().connectSocket()
+                get().startSocketMonitor()
                 toast.success(res.data.message)
                 navigate("/")
             }
-
-
         }
         catch (error) {
             toast.error(error.response.data.message || "Server Error")
@@ -603,26 +610,18 @@ export const userauthstore = create((set, get) => ({
         finally {
             set({ isSigningup: false })
         }
-
-
     },
     logout: async (navigate) => {
         console.log('[UserAuthStore] logout called.');
         try {
             set({ islogingout: true })
-
-            console.log(" in user auth store : logging out .... ");
-
             const res = await axiosInstance.get("/user/logout")
-
-
             if (res.status === 200) {
                 set({ user: null })
                 toast.success(res.data.message)
                 get().disconnectSocket()
                 navigate("/login")
             }
-
         }
         catch (error) {
             console.log("error in logging in :", error)
@@ -631,8 +630,6 @@ export const userauthstore = create((set, get) => ({
         finally {
             set({ islogingout: false })
         }
-
-
     },
     editprofile: async (data) => {
         console.log('[UserAuthStore] editprofile called. data:', data);
@@ -676,6 +673,7 @@ export const userauthstore = create((set, get) => ({
             if (res.status === 200) {
                 set({ user: res.data.user })
                 get().connectSocket()
+                get().startSocketMonitor()
             }
 
         }
