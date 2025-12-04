@@ -1,0 +1,43 @@
+# Dependencies
+node_modules
+client/node_modules
+server/node_modules
+
+# Environment files (set in CapRover)
+.env
+.env.local
+.env.development
+.env.production
+server/.env
+client/.env
+
+# Build outputs (we build fresh)
+client/dist
+
+# Git
+.git
+.gitignore
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test files
+*.test.js
+*.spec.js
+__tests__
+coverage
+
+# Documentation
+README.md
+*.md
