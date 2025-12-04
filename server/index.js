@@ -112,7 +112,7 @@ app.use('/api/user', userroute)
 app.use('/api/message', msgroute)
 
 // Serve static files with proper cache headers
-app.use(express.static(path.join(__dirname, '../client/dist'), {
+app.use(express.static(path.join(__dirname, 'client/dist'), {
   maxAge: '1d',
   etag: false,
   setHeaders: (res, filePath, stat) => {
@@ -141,7 +141,7 @@ app.use(express.static(path.join(__dirname, '../client/dist'), {
 
 // Catch-all for React Router (MUST be last)
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../client/dist/index.html'));
+  res.sendFile(path.join(__dirname, 'client/dist/index.html'));
 });
 
 server.listen(port, () => console.log(`Server listening on port ${port}`))
