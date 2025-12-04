@@ -24,13 +24,16 @@ WORKDIR /app
 COPY server/package*.json ./
 
 # Install only production dependencies
-RUN npm ci --only=production
+RUN npm ci --omit=dev
 
 # Copy server source code
 COPY server/ ./
 
 # Copy built frontend from previous stage
 COPY --from=frontend-build /app/client/dist ./client/dist
+
+# Debug: List files to verify structure
+RUN ls -la && ls -la client/dist || echo "client/dist not found"
 
 # Expose the port
 EXPOSE 3000
