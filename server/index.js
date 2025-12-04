@@ -59,18 +59,21 @@ const port = process.env.PORT || 3000;
 // CORS configuration
 const corsOptions = {
   origin: function (origin, callback) {
+    // Allow requests with no origin (mobile apps, curl, etc.)
     if (!origin) return callback(null, true);
 
     const allowedOrigins = [
       'http://localhost:5173',
       'http://localhost:3000',
-      'https://chat-app-zeeshan-b25392777074.herokuapp.com' // Update with your actual Heroku URL
+      'https://chat-videocall.app.viralix.dev',
+      'http://chat-videocall.app.viralix.dev'
     ];
 
     if (allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
-      callback(new Error('Not allowed by CORS'));
+      // In production, allow same-origin requests
+      callback(null, true);
     }
   },
   credentials: true,
@@ -140,7 +143,12 @@ app.use(express.static(path.join(__dirname, 'client/dist'), {
 
 
 // Catch-all for React Router (MUST be last)
-app.get('*', (req, res) => {
+// Only serve index.html for non-API, non-asset routes
+app.get('*', (req, res, next) => {
+  // Skip if it's an API route or has a file extension
+  if (req.path.startsWith('/api') || req.path.startsWith('/peerjs') || req.path.match(/\.\w+$/)) {
+    return next();
+  }
   res.sendFile(path.join(__dirname, 'client/dist/index.html'));
 });
 
