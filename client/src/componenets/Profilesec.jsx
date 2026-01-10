@@ -65,6 +65,7 @@ const Profilesec = () => {
                 </div>
                 <div className="menubtns" style={disp}>
                     <div className="editbtn" onClick={() => navigate("/editprofile")}> Edit Profile</div>
+                    <div className="editbtn" onClick={() => navigate("/documents")}>📄 Documents</div>
                     <div className="logoutbtn" >
                         <button onClick={handlelogout} disabled={islogingout}>
                             {islogingout ? <Loader /> : "Logout"}

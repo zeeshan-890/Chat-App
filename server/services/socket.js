@@ -82,10 +82,128 @@ io.on('connection', (socket) => {
         });
     });
 
-    socket.on('disconnect', () => {
+    // ==========================================
+    // DOCUMENT COLLABORATION EVENTS
+    // ==========================================
+
+    // Track which document rooms each socket is in
+    const userDocumentRooms = new Set();
+
+    // Join a document for collaboration
+    socket.on('join-document', async ({ docId, user }) => {
+        console.log(`User ${user?.name || userId} joining document ${docId}`);
+
+        const roomName = `doc-${docId}`;
+        socket.join(roomName);
+        userDocumentRooms.add(docId);
+
+        // Import dynamically to avoid circular dependency
+        const { getDocumentState, addUserToDocument, getActiveUsers, generateRandomColor } = await import('./yjs-server.js');
+
+        // Get current document state from database
+        const docState = await getDocumentState(docId);
+
+        if (docState) {
+            // Send current state to the joining user
+            socket.emit('document-state', {
+                state: docState.state,
+                docId
+            });
+        }
+
+        // Track this user in the document
+        const userColor = generateRandomColor();
+        addUserToDocument(docId, socket.id, {
+            _id: userId,
+            name: user?.name || 'Anonymous',
+            color: userColor
+        });
+
+        // Notify others that a user joined
+        socket.to(roomName).emit('user-joined-document', {
+            docId,
+            userId: userId,
+            name: user?.name || 'Anonymous',
+            color: userColor
+        });
+
+        // Send list of active users to the joining user
+        const activeUsers = getActiveUsers(docId);
+        socket.emit('document-active-users', { docId, users: activeUsers });
+    });
+
+    // Receive and broadcast document updates
+    socket.on('document-update', async ({ docId, update, userId: editorId }) => {
+        const roomName = `doc-${docId}`;
+
+        // Broadcast to all other users in the document
+        socket.to(roomName).emit('document-update', {
+            docId,
+            update,
+            from: editorId || userId
+        });
+
+        // Save to database (debounced)
+        const { saveDocumentState } = await import('./yjs-server.js');
+        saveDocumentState(docId, new Uint8Array(update), editorId || userId);
+    });
+
+    // Cursor position updates
+    socket.on('cursor-update', ({ docId, cursor, user }) => {
+        const roomName = `doc-${docId}`;
+        socket.to(roomName).emit('cursor-update', {
+            docId,
+            cursor,
+            userId: userId,
+            userName: user?.name || 'Anonymous',
+            userColor: user?.color
+        });
+    });
+
+    // Selection updates
+    socket.on('selection-update', ({ docId, selection, user }) => {
+        const roomName = `doc-${docId}`;
+        socket.to(roomName).emit('selection-update', {
+            docId,
+            selection,
+            userId: userId,
+            userName: user?.name || 'Anonymous',
+            userColor: user?.color
+        });
+    });
+
+    // Leave document
+    socket.on('leave-document', async ({ docId }) => {
+        console.log(`User ${userId} leaving document ${docId}`);
+
+        const roomName = `doc-${docId}`;
+        socket.leave(roomName);
+        userDocumentRooms.delete(docId);
+
+        const { removeUserFromDocument } = await import('./yjs-server.js');
+        removeUserFromDocument(docId, socket.id);
+
+        // Notify others
+        socket.to(roomName).emit('user-left-document', {
+            docId,
+            userId: userId
+        });
+    });
+
+    socket.on('disconnect', async () => {
         // Only log disconnect if needed
         delete usersocketmap[userId];
         io.emit('getonline', Object.keys(usersocketmap));
+
+        // Clean up document rooms
+        const { removeUserFromDocument } = await import('./yjs-server.js');
+        for (const docId of userDocumentRooms) {
+            removeUserFromDocument(docId, socket.id);
+            io.to(`doc-${docId}`).emit('user-left-document', {
+                docId,
+                userId: userId
+            });
+        }
     });
 });
 

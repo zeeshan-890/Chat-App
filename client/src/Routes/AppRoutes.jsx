@@ -8,6 +8,8 @@ import { userauthstore } from '../Store/UserAuthStore.jsx';
 import ProtectedRoute from '../componenets/Protectedroute.jsx';
 import { MdVideoCall } from 'react-icons/md';
 import Videocall from "../pages/Videocall.jsx"
+import Documents from '../pages/Documents.jsx';
+import DocumentEditor from '../pages/DocumentEditor.jsx';
 
 
 
@@ -22,9 +24,12 @@ function AppRoutes() {
       <Route path="/" element={<ProtectedRoute>{user ? <Home /> : <Login />}</ProtectedRoute>} />
       <Route path="/editprofile" element={<ProtectedRoute>{user ? <Updateprofile /> : <Login />}</ProtectedRoute>} />
       <Route path="/videocall" element={<ProtectedRoute>{user ? <Videocall /> : <Login />}</ProtectedRoute>} />
+      <Route path="/documents" element={<ProtectedRoute>{user ? <Documents /> : <Login />}</ProtectedRoute>} />
+      <Route path="/document/:id" element={<ProtectedRoute>{user ? <DocumentEditor /> : <Login />}</ProtectedRoute>} />
 
     </Routes>
   );
 }
 
 export default AppRoutes;
+

@@ -12,6 +12,7 @@ import { fileURLToPath } from 'url';
 
 import userroute from './routes/user.js';
 import msgroute from './routes/message.js';
+import documentroute from './routes/document.js';
 import { checkauth } from './middlewares/checkauth.js';
 import cookieParser from 'cookie-parser';
 import { ExpressPeerServer } from 'peer';
@@ -113,6 +114,7 @@ app.get('/api/ice', async (req, res) => {
 // API routes FIRST (before static files)
 app.use('/api/user', userroute)
 app.use('/api/message', msgroute)
+app.use('/api/document', documentroute)
 
 // Serve static files with proper cache headers
 app.use(express.static(path.join(__dirname, 'client/dist'), {
