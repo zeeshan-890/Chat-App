@@ -86,13 +86,6 @@ export function createPeer(id) {
     });
     peer.on('disconnected', () => {
         console.warn('[PeerService] PeerJS disconnected');
-        try {
-            if (peer && !peer.destroyed) {
-                peer.reconnect();
-            }
-        } catch (error) {
-            console.warn('[PeerService] Peer reconnect failed:', error);
-        }
     });
     peer.on('close', () => {
         console.warn('[PeerService] PeerJS closed');

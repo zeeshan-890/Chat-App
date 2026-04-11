@@ -27,7 +27,7 @@ import { log } from 'console';
 
 const peerServer = ExpressPeerServer(server, {
   path: '/',
-  secure: true, // use HTTPS in production
+  proxied: true,
   debug: false,
   allow_discovery: true,
   // port: 3000, // Use the same port as your server or specify a different one

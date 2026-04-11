@@ -9,6 +9,9 @@ const SOCKET_BASE_URL = (import.meta.env.VITE_SOCKET_URL || '').trim()
 const SOCKET_PATH = (import.meta.env.VITE_SOCKET_PATH || '/socket.io').trim() || '/socket.io';
 
 let pendingPeerReinitTimeout = null;
+let peerReinitAttempts = 0;
+const MAX_PEER_REINIT_ATTEMPTS = 5;
+let isPeerReinitInProgress = false;
 
 // jj
 
@@ -50,6 +53,8 @@ export const userauthstore = create((set, get) => ({
     pendingSignals: [], // Initialize as empty array to prevent "not iterable" errors
     peerId: null,
     peer: null,
+    isPeerInitializing: false,
+    isPeerUnavailable: false,
     peerCall: null,
     remoteStream: null,
     localStream: null,
@@ -777,6 +782,8 @@ export const userauthstore = create((set, get) => ({
                     clearTimeout(pendingPeerReinitTimeout);
                     pendingPeerReinitTimeout = null;
                 }
+                peerReinitAttempts = 0;
+                isPeerReinitInProgress = false;
                 set({ peer: null, peerId: null, call: null, incomingCall: null, peerCall: null, remoteStream: null, localStream: null });
                 navigate("/login")
             }
@@ -1016,8 +1023,27 @@ export const userauthstore = create((set, get) => ({
         }
     },
 
-    initPeer: (id) => {
+    initPeer: (id, options = {}) => {
         console.log('[UserAuthStore] initPeer called. id:', id);
+        if (!id) {
+            return;
+        }
+
+        const { isPeerInitializing, peer: existingPeer } = get();
+        if (isPeerInitializing && options.force !== true) {
+            return;
+        }
+
+        if (
+            existingPeer
+            && !existingPeer.destroyed
+            && existingPeer.id === id
+            && !existingPeer.disconnected
+        ) {
+            return;
+        }
+
+        set({ isPeerInitializing: true, isPeerUnavailable: false });
         const peer = createPeer(id); // from your PeerService.js
         set({ peer, peerId: id });
 
@@ -1031,41 +1057,77 @@ export const userauthstore = create((set, get) => ({
 
         peer.on('open', (pid) => {
             console.log('[UserAuthStore] PeerJS open event. pid:', pid);
-            set({ peerId: pid });
+            peerReinitAttempts = 0;
+            set({ peerId: pid, isPeerInitializing: false, isPeerUnavailable: false });
         });
-        const schedulePeerReinit = () => {
+
+        const schedulePeerReinit = (reason = 'unknown') => {
+            const { user, islogingout } = get();
+            if (!user?._id || islogingout || isPeerReinitInProgress) {
+                return;
+            }
+
             if (pendingPeerReinitTimeout) {
                 return;
             }
+
+            if (peerReinitAttempts >= MAX_PEER_REINIT_ATTEMPTS) {
+                set({ isPeerInitializing: false, isPeerUnavailable: true });
+                if (peerReinitAttempts === MAX_PEER_REINIT_ATTEMPTS) {
+                    toast.error('Video call signaling is unavailable. Please retry in a moment.');
+                }
+                peerReinitAttempts += 1;
+                return;
+            }
+
+            const delay = Math.min(1000 * (2 ** peerReinitAttempts), 12000);
+            peerReinitAttempts += 1;
+            console.warn(`[UserAuthStore] Scheduling peer reinit attempt #${peerReinitAttempts} due to ${reason}`);
 
             pendingPeerReinitTimeout = setTimeout(() => {
                 pendingPeerReinitTimeout = null;
                 const currentUser = get().user;
                 if (!currentUser?._id) {
+                    set({ isPeerInitializing: false });
                     return;
                 }
 
-                destroyPeer();
-                set({ peer: null, peerId: null, peerCall: null });
-                get().initPeer(currentUser._id);
-            }, 1200);
+                isPeerReinitInProgress = true;
+                try {
+                    destroyPeer();
+                    set({ peer: null, peerId: null, peerCall: null, isPeerInitializing: false });
+                } finally {
+                    isPeerReinitInProgress = false;
+                }
+
+                get().initPeer(currentUser._id, { force: true });
+            }, delay);
         };
 
         peer.on('error', (err) => {
             console.error('PeerJS error:', err);
+            set({ isPeerInitializing: false });
             if (err?.type === 'network' || err?.type === 'server-error' || err?.type === 'socket-closed') {
-                schedulePeerReinit();
+                schedulePeerReinit(err?.type);
             }
         });
 
         peer.on('disconnected', () => {
+            if (get().islogingout || isPeerReinitInProgress) {
+                return;
+            }
             console.warn('[UserAuthStore] Peer disconnected. Reinitializing...');
-            schedulePeerReinit();
+            set({ isPeerInitializing: false });
+            schedulePeerReinit('disconnected');
         });
 
         peer.on('close', () => {
+            if (get().islogingout || isPeerReinitInProgress) {
+                return;
+            }
             console.warn('[UserAuthStore] Peer closed. Reinitializing...');
-            schedulePeerReinit();
+            set({ isPeerInitializing: false });
+            schedulePeerReinit('close');
         });
 
         peer.on('call', (callObj) => {
