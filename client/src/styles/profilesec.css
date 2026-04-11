@@ -48,6 +48,146 @@
         margin-right: 33px;
     }
 
+    .groupmenuactions {
+        display: flex;
+        gap: 8px;
+        margin-right: 16px;
+    }
+
+    .groupmenuactions button {
+        border: none;
+        border-radius: 8px;
+        padding: 6px 10px;
+        font-weight: 600;
+        cursor: pointer;
+    }
+
+    .groupmanagebtn {
+        background: rgba(102, 87, 64, 0.65);
+        color: #fff;
+    }
+
+    .leavegroupbtn {
+        background: rgba(150, 58, 58, 0.85);
+        color: #fff;
+    }
+
+    .groupmanagepanel {
+        margin: 8px 12px 0;
+        padding: 10px;
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        background: rgba(0, 0, 0, 0.16);
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        max-height: 300px;
+        overflow: auto;
+    }
+
+    .groupsection {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .groupsectiontitle {
+        font-size: 13px;
+        font-weight: 700;
+        opacity: 0.9;
+    }
+
+    .groupinlineform {
+        display: flex;
+        gap: 8px;
+    }
+
+    .groupinlineform input {
+        flex: 1;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        background: rgba(255, 255, 255, 0.06);
+        color: #fff;
+        padding: 6px 8px;
+    }
+
+    .groupinlineform button,
+    .groupsection > button,
+    .groupmemberactions button {
+        border: none;
+        border-radius: 8px;
+        padding: 6px 10px;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        background: #717b65;
+        color: #111;
+    }
+
+    .groupinlineform button:disabled,
+    .groupsection > button:disabled,
+    .groupmemberactions button:disabled,
+    .leavegroupbtn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
+    .groupmemberspicklist,
+    .groupmemberslistview {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .grouppickitem {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    }
+
+    .groupmemberrow {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        align-items: center;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 8px;
+        padding: 6px 8px;
+    }
+
+    .groupmembermeta {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+    }
+
+    .groupmembername {
+        font-size: 13px;
+        font-weight: 600;
+    }
+
+    .groupmemberbadges {
+        font-size: 11px;
+        opacity: 0.8;
+    }
+
+    .groupmemberactions {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+    }
+
+    .groupmemberactions .dangerbtn {
+        background: rgba(150, 58, 58, 0.9);
+        color: #fff;
+    }
+
+    .groupemptynote {
+        font-size: 12px;
+        opacity: 0.8;
+    }
+
     .menubtns {
         position: absolute;
         background-color: rgb(215, 227, 220);

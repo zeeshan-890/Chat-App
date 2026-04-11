@@ -6,19 +6,26 @@ import Loader from './Loader'
 
 const SearchChats = () => {
   const [value, setValue] = useState("")
-  const { sidebarusers, setsearcheduser, issettingsidebaruser } = userauthstore()
+  const { sidebarusers, groups, setsearcheduser, issettingsidebaruser, isLoadingGroups } = userauthstore()
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    console.log("Searching for:", value)
+    const query = value.trim().toLowerCase()
 
-    const matchedUsers = sidebarusers.filter(user =>
-      user.name.toLowerCase().includes(value.toLowerCase())
-    )
-    console.log("Matched Users:", matchedUsers)
-    setsearcheduser(matchedUsers)
+    if (!query) {
+      setsearcheduser(null)
+      return
+    }
+
+    const chats = [...(groups || []), ...(sidebarusers || [])]
+    const matchedChats = chats.filter((chat) => {
+      const name = (chat.name || '').toLowerCase()
+      const username = (chat.username || '').toLowerCase()
+      return name.includes(query) || username.includes(query)
+    })
+
+    setsearcheduser(matchedChats)
     setValue("")
-    // You can now call a search function or update filtered chat list
   }
 
   return (
@@ -32,7 +39,7 @@ const SearchChats = () => {
             placeholder='Search chats'
             onChange={(e) => setValue(e.target.value)}
           />
-          <button  disabled = {!(value.length>0)} type='submit'>{issettingsidebaruser ? <Loader className="small" /> : <FaSearch />}</button>
+          <button disabled={!(value.length > 0)} type='submit'>{issettingsidebaruser || isLoadingGroups ? <Loader className="small" /> : <FaSearch />}</button>
         </label>
       </form>
     </div>

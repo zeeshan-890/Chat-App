@@ -17,11 +17,10 @@ const Sendmessage = () => {
 
     const { selecteduser } = userauthstore()
     const { sendmessage, isSendingMessage } = messagestore()
-    const receiverid = selecteduser._id
 
     const onSubmit = (data) => {
 
-        sendmessage(data, receiverid);
+        sendmessage(data, selecteduser);
         reset(); // Optional: clear input after sending
     };
 
@@ -29,7 +28,7 @@ const Sendmessage = () => {
     return (
         <div className='sendmessagebox'>
             <form onSubmit={handleSubmit(onSubmit)}>
-                <input type="text" placeholder="Enter your Message" {...register("text")} />
+                <input type="text" placeholder={selecteduser?.chatType === 'group' ? "Message the group" : "Enter your Message"} {...register("text")} />
                 <button type='submit' disabled={(isSendingMessage) || !watch("text")}>{isSendingMessage ? <Loader /> : "send"}</button>
             </form>
         </div>

@@ -1,5 +1,6 @@
 import Message from '../models/message.js';
 import User from '../models/user.js';
+import Group from '../models/group.js';
 import { getreceiversocketid, io } from '../services/socket.js';
 
 // Send a message
@@ -16,6 +17,11 @@ async function sendMessage(req, res) {
     }
     if (req.body.image) {
       image = req.body.image;
+    }
+
+    const receiverExists = await User.exists({ _id: receiver });
+    if (!receiverExists) {
+      return res.status(404).json({ success: false, message: 'Receiver not found.' });
     }
 
     const newMessage = await Message.create({
@@ -37,6 +43,59 @@ async function sendMessage(req, res) {
   }
 }
 
+// Send a message to a group
+async function sendGroupMessage(req, res) {
+  try {
+    const { groupId, text, image } = req.body;
+
+    if (!groupId) {
+      return res.status(400).json({ success: false, message: 'Group ID is required.' });
+    }
+
+    if (!text && !image) {
+      return res.status(400).json({ success: false, message: 'Message text or image is required.' });
+    }
+
+    const group = await Group.findOne({ _id: groupId, members: req.user._id });
+    if (!group) {
+      return res.status(404).json({ success: false, message: 'Group not found or access denied.' });
+    }
+
+    const newMessage = await Message.create({
+      sender: req.user._id,
+      group: groupId,
+      text,
+      image,
+      readBy: [req.user._id],
+    });
+
+    const populatedMessage = await Message.findById(newMessage._id)
+      .populate('sender', 'name username profileImg');
+
+    await Group.findByIdAndUpdate(groupId, { updatedAt: new Date() });
+
+    for (const memberId of group.members) {
+      const receiverId = memberId.toString();
+      if (receiverId === req.user._id.toString()) {
+        continue;
+      }
+
+      const receiversocketid = getreceiversocketid(receiverId);
+      if (receiversocketid) {
+        io.to(receiversocketid).emit('newGroupMessage', {
+          groupId,
+          message: populatedMessage,
+        });
+      }
+    }
+
+    res.status(201).json({ success: true, message: 'Group message sent.', data: populatedMessage });
+  } catch (error) {
+    console.error('Error sending group message:', error);
+    res.status(500).json({ success: false, message: 'Internal server error', error: error.message });
+  }
+}
+
 // Get all messages between two users
 async function getMessages(req, res) {
   try {
@@ -51,6 +110,27 @@ async function getMessages(req, res) {
     res.json({ success: true, messages });
   } catch (error) {
     console.error('Error fetching messages:', error);
+    res.status(500).json({ success: false, message: 'Internal server error', error: error.message });
+  }
+}
+
+// Get all messages in a group
+async function getGroupMessages(req, res) {
+  try {
+    const { groupId } = req.params;
+
+    const group = await Group.findOne({ _id: groupId, members: req.user._id });
+    if (!group) {
+      return res.status(404).json({ success: false, message: 'Group not found or access denied.' });
+    }
+
+    const messages = await Message.find({ group: groupId })
+      .sort({ timestamp: 1 })
+      .populate('sender', 'name username profileImg');
+
+    res.json({ success: true, messages });
+  } catch (error) {
+    console.error('Error fetching group messages:', error);
     res.status(500).json({ success: false, message: 'Internal server error', error: error.message });
   }
 }
@@ -95,7 +175,9 @@ async function getunread(req, res) {
 
 export {
   sendMessage,
+  sendGroupMessage,
   getMessages,
+  getGroupMessages,
   markread,
   getunread
 };

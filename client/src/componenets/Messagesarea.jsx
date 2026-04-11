@@ -7,20 +7,20 @@ import Loader from '../componenets/Loader'
 
 const Messagesarea = () => {
 
-    const { getmessage, messages,  isLoadingMessages } = messagestore()
-    const { selecteduser } = userauthstore()
+    const { getmessage, messages, isLoadingMessages } = messagestore()
+    const { selecteduser, user } = userauthstore()
     // const messages = messagestore((state) => state.messages) // ✅ This subscribes correctly
     const scrollRef = useRef(null)
     const prevMsgLengthRef = useRef(0)
 
     useEffect(() => {
 
-        getmessage(selecteduser._id)
+        getmessage(selecteduser)
         // listenmessages()
 
 
         // return () => unlistenmessages()
-    }, [selecteduser._id, getmessage, ])
+    }, [selecteduser?._id, selecteduser?.chatType, getmessage])
 
     useEffect(() => {
         const container = scrollRef.current
@@ -44,14 +44,22 @@ const Messagesarea = () => {
             {isLoadingMessages ? (
                 <Loader />
             ) : (
-                messages.map(message => (
-                    <div key={message._id} className={((message.sender) == selecteduser._id) ? "startchat" : "endchat"}>
+                messages.map(message => {
+                    const senderId = typeof message.sender === 'object' ? message.sender._id : message.sender
+                    const isOwnMessage = senderId === user?._id
+                    const isGroupMessage = selecteduser?.chatType === 'group'
+
+                    return (
+                    <div key={message._id} className={isOwnMessage ? "endchat" : "startchat"}>
                         <p>
-                            {message.text}
+                            {isGroupMessage && !isOwnMessage && typeof message.sender === 'object' && (
+                                <span className="sendername">{message.sender.name}</span>
+                            )}
+                            {message.text || 'Media message'}
                         </p>
 
                     </div>
-                ))
+                )})
             )}
         </div>
 

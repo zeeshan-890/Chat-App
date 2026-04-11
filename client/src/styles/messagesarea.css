@@ -22,6 +22,9 @@
     background-color: rgba(129, 111, 89, 0.704);
 
     border-radius: 7px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
 }
 
 .endchat {
@@ -38,4 +41,10 @@
     padding: 8px;
 
     border-radius: 7px;
+}
+
+.sendername {
+    font-size: 11px;
+    opacity: 0.9;
+    font-weight: 700;
 }

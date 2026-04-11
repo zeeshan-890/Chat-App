@@ -3,22 +3,26 @@ import { userauthstore } from "../Store/UserAuthStore"
 
 import { useEffect, useState } from "react"
 import "../styles/contactcard.css"
-import Loader from './Loader'
-
 
 const Contactcards = (props) => {
     const { setselecteduser, onlineusers, selecteduser } = userauthstore()
     const { getunread, markread, isLoadingUnread } = messagestore()
 
-    const user = props.user
+    const chat = props.chat || props.user
+    const isGroup = chat?.chatType === 'group'
     const [unreadCount, setUnreadCount] = useState(0)
     const [isUpdating, setIsUpdating] = useState(false)
 
     const fetchUnread = async () => {
+        if (isGroup) {
+            setUnreadCount(0)
+            return
+        }
+
         if (isUpdating) return; // Prevent multiple simultaneous updates
         setIsUpdating(true);
         try {
-            const count = await getunread(user._id)
+            const count = await getunread(chat._id)
             setUnreadCount(count)
         } catch (error) {
             console.error('Error fetching unread count:', error);
@@ -29,14 +33,18 @@ const Contactcards = (props) => {
 
     useEffect(() => {
         fetchUnread()
-    }, [user._id])
+    }, [chat._id, isGroup])
 
     // Listen for live unread count updates with debouncing
     useEffect(() => {
+        if (isGroup) {
+            return;
+        }
+
         let timeoutId;
 
         const handleUnreadUpdate = (event) => {
-            if (event.detail.userId === user._id) {
+            if (event.detail?.chatType === 'direct' && event.detail.userId === chat._id) {
                 // Debounce the update to prevent multiple rapid calls
                 clearTimeout(timeoutId);
                 timeoutId = setTimeout(() => {
@@ -51,44 +59,52 @@ const Contactcards = (props) => {
             clearTimeout(timeoutId);
             window.removeEventListener('updateUnreadCount', handleUnreadUpdate);
         };
-    }, [user._id]);
+    }, [chat._id, isGroup]);
 
     // Reset unread count when this user is selected
     useEffect(() => {
-        if (selecteduser && selecteduser._id === user._id) {
+        if (selecteduser && selecteduser._id === chat._id && selecteduser.chatType === chat.chatType) {
             setUnreadCount(0);
         }
-    }, [selecteduser, user._id]);
+    }, [selecteduser, chat._id, chat.chatType]);
 
     const handleCardClick = async () => {
-        setselecteduser(user);
-        await markread(user._id);
+        setselecteduser(chat);
+        if (!isGroup) {
+            await markread(chat._id);
+        }
         setUnreadCount(0);
     }
+
+    const cardName = chat.name
+    const cardSubtitle = isGroup ? `${chat.members?.length || 0} members` : chat.username
+    const cardImage = isGroup ? (chat.groupImg || "/avatar.jpg") : (chat.profileImg || "/avatar.jpg")
+    const isSelected = selecteduser && selecteduser._id === chat._id && selecteduser.chatType === chat.chatType
+    const isDisabled = !isGroup && (isLoadingUnread || isUpdating)
 
     return (
         <>
             <div
                 onClick={handleCardClick}
-                className={`profilecard${selecteduser && selecteduser._id === user._id ? ' selected' : ''}`}
+                className={`profilecard${isSelected ? ' selected' : ''}`}
                 style={{
-                    pointerEvents: isLoadingUnread || isUpdating ? 'none' : 'auto',
-                    opacity: isLoadingUnread || isUpdating ? 0.6 : 1
+                    pointerEvents: isDisabled ? 'none' : 'auto',
+                    opacity: isDisabled ? 0.6 : 1
                 }}
             >
                 <div className="profiledata">
                     <div className="profileimg">
-                        <img src={props.profileImg} alt="profile" />
-                        <div className={onlineusers.includes(user._id) ? "statusdot" : ""}></div>
+                        <img src={cardImage} alt="profile" />
+                        {!isGroup && <div className={onlineusers.includes(chat._id) ? "statusdot" : ""}></div>}
                     </div>
                     <div className="profilenames">
-                        <div className="profilename">{props.name}</div>
-                        <div className="latestmsg">{user.username}</div>
+                        <div className="profilename">{cardName}</div>
+                        <div className="latestmsg">{cardSubtitle}</div>
                     </div>
                 </div>
                 <div className="menu">
                     <div className="menuicon">
-                        {!isLoadingUnread && !isUpdating && <div className={`noti ${(unreadCount <= 0) && "nonoti"}`}>{unreadCount}</div>}
+                        {!isGroup && !isLoadingUnread && !isUpdating && <div className={`noti ${(unreadCount <= 0) && "nonoti"}`}>{unreadCount}</div>}
                     </div>
                 </div>
             </div>
