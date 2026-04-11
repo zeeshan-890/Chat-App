@@ -27,6 +27,7 @@ export const userauthstore = create((set, get) => ({
     isLoadingGroups: false,
     isCreatingGroup: false,
     isUpdatingGroup: false,
+    showCreateGroupPanel: false,
     selecteduser: null,
     socket: null,
     onlineusers: [],
@@ -70,6 +71,18 @@ export const userauthstore = create((set, get) => ({
     setsearcheduser: (data) => {
         console.log('[UserAuthStore] setsearcheduser called:', data);
         set({ searcheduser: data })
+    },
+
+    openCreateGroupPanel: () => {
+        set({ showCreateGroupPanel: true });
+    },
+
+    closeCreateGroupPanel: () => {
+        set({ showCreateGroupPanel: false });
+    },
+
+    toggleCreateGroupPanel: () => {
+        set((state) => ({ showCreateGroupPanel: !state.showCreateGroupPanel }));
     },
 
     upsertGroupInState: (group, options = {}) => {
@@ -853,7 +866,7 @@ export const userauthstore = create((set, get) => ({
 
             const res = await axiosInstance.post('/group/create', { name, members });
             get().upsertGroupInState(res.data.group, { select: true });
-            set({ searcheduser: null });
+            set({ searcheduser: null, showCreateGroupPanel: false });
 
             toast.success(res.data.message || 'Group created successfully');
             return res.data.group;

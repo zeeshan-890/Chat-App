@@ -10,7 +10,7 @@ const Profilesec = () => {
 
     const navigate = useNavigate()
 
-    const { logout, user, islogingout } = userauthstore()
+    const { logout, user, islogingout, openCreateGroupPanel } = userauthstore()
 
     const [btns, setshowbtns] = useState(false)
     const menuref = useRef(null);
@@ -43,6 +43,11 @@ const Profilesec = () => {
 
     }
 
+    function handleOpenCreateGroup() {
+        openCreateGroupPanel();
+        setshowbtns(false);
+    }
+
 
 
     const disp = { display: btns ? "flex" : "none" }
@@ -66,6 +71,7 @@ const Profilesec = () => {
                 <div className="menubtns" style={disp}>
                     <div className="editbtn" onClick={() => navigate("/editprofile")}> Edit Profile</div>
                     <div className="editbtn" onClick={() => navigate("/documents")}>📄 Documents</div>
+                    <div className="editbtn" onClick={handleOpenCreateGroup}>👥 Create Group</div>
                     <div className="logoutbtn" >
                         <button onClick={handlelogout} disabled={islogingout}>
                             {islogingout ? <Loader /> : "Logout"}

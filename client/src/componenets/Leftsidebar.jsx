@@ -20,9 +20,11 @@ const Leftsidebar = () => {
     setsearcheduser,
     createGroup,
     isCreatingGroup,
+    showCreateGroupPanel,
+    toggleCreateGroupPanel,
+    closeCreateGroupPanel,
   } = userauthstore()
 
-  const [showCreateGroup, setShowCreateGroup] = useState(false);
   const [groupName, setGroupName] = useState('');
   const [selectedMembers, setSelectedMembers] = useState([]);
 
@@ -63,7 +65,7 @@ const Leftsidebar = () => {
       });
       setGroupName('');
       setSelectedMembers([]);
-      setShowCreateGroup(false);
+      closeCreateGroupPanel();
     } catch (error) {
       console.log('Create group failed:', error);
     }
@@ -84,13 +86,13 @@ const Leftsidebar = () => {
           <button
             type="button"
             className="new-group-btn"
-            onClick={() => setShowCreateGroup((prev) => !prev)}
+            onClick={toggleCreateGroupPanel}
           >
-            {showCreateGroup ? 'Close Group Form' : 'Create Group'}
+            {showCreateGroupPanel ? 'Close Group Form' : 'Create Group'}
           </button>
         </div>
 
-        {showCreateGroup && (
+        {showCreateGroupPanel && (
           <form className="creategrouppanel" onSubmit={handleCreateGroup}>
             <input
               type="text"
