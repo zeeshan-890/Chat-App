@@ -316,6 +316,9 @@ Create `client/.env` file only when frontend and backend are deployed on differe
 VITE_API_URL=https://your-api-domain.com/api
 VITE_SOCKET_URL=https://your-api-domain.com
 VITE_SOCKET_PATH=/socket.io
+# Optional: defaults to true in production for proxy compatibility.
+# Set to false only when websocket upgrades are fully supported.
+VITE_SOCKET_FORCE_POLLING=true
 VITE_PEER_URL=https://your-api-domain.com
 VITE_PEER_PATH=/peerjs
 ```

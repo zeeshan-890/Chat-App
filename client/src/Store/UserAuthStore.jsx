@@ -7,11 +7,16 @@ import { createPeer, closeCall, destroyPeer } from '../services/PeerService';
 const SOCKET_BASE_URL = (import.meta.env.VITE_SOCKET_URL || '').trim()
     || (import.meta.env.MODE === 'development' ? 'http://localhost:3000' : window.location.origin);
 const SOCKET_PATH = (import.meta.env.VITE_SOCKET_PATH || '/socket.io').trim() || '/socket.io';
+const SOCKET_FORCE_POLLING = String(
+    import.meta.env.VITE_SOCKET_FORCE_POLLING
+    || (import.meta.env.MODE === 'production' ? 'true' : 'false')
+).toLowerCase() === 'true';
 
 let pendingPeerReinitTimeout = null;
 let peerReinitAttempts = 0;
 const MAX_PEER_REINIT_ATTEMPTS = 5;
 let isPeerReinitInProgress = false;
+let usePollingFallback = SOCKET_FORCE_POLLING;
 
 // jj
 
@@ -60,6 +65,7 @@ export const userauthstore = create((set, get) => ({
     localStream: null,
     socketMonitorInterval: null, // <-- Add this to your initial state
     isSocketConnecting: false,
+    socketTransportMode: SOCKET_FORCE_POLLING ? 'polling' : 'auto',
 
     setPeerCall: (call) => {
         console.log('[UserAuthStore] setPeerCall called:', call);
@@ -654,6 +660,8 @@ export const userauthstore = create((set, get) => ({
         const socket = io(SOCKET_BASE_URL, {
             query: { userId: user._id },
             path: SOCKET_PATH,
+            transports: usePollingFallback ? ['polling'] : ['polling', 'websocket'],
+            upgrade: !usePollingFallback,
             reconnection: true,
             reconnectionAttempts: 10,
             reconnectionDelay: 2000,
@@ -666,7 +674,10 @@ export const userauthstore = create((set, get) => ({
 
         socket.on('connect', () => {
             console.log('Socket connected');
-            set({ isSocketConnecting: false });
+            set({
+                isSocketConnecting: false,
+                socketTransportMode: usePollingFallback ? 'polling' : 'auto',
+            });
             get().setupCallListeners();
             get().setupMessageListeners();
         });
@@ -692,6 +703,32 @@ export const userauthstore = create((set, get) => ({
 
         socket.on('connect_error', (error) => {
             console.error("Socket connection error:", error);
+            const description = typeof error?.description === 'string' ? error.description : '';
+            const errorText = `${error?.message || ''} ${description}`.toLowerCase();
+
+            if (!usePollingFallback && (errorText.includes('invalid frame header') || errorText.includes('websocket'))) {
+                console.warn('[UserAuthStore] WebSocket upgrade failed. Switching socket transport to polling fallback.');
+                usePollingFallback = true;
+
+                socket.off('incoming-call');
+                socket.off('call-answered');
+                socket.off('call-rejected');
+                socket.off('end-call');
+                socket.off('call-timeout');
+                socket.off('newMessage');
+                socket.off('newGroupMessage');
+                socket.disconnect();
+
+                set({
+                    socket: null,
+                    isSocketConnecting: false,
+                    socketTransportMode: 'polling',
+                });
+
+                get().connectSocket();
+                return;
+            }
+
             set({ isSocketConnecting: false });
         });
 
@@ -716,7 +753,12 @@ export const userauthstore = create((set, get) => ({
             socket.disconnect();
         }
         stopSocketMonitor();
-        set({ socket: null, isSocketConnecting: false });
+        usePollingFallback = SOCKET_FORCE_POLLING;
+        set({
+            socket: null,
+            isSocketConnecting: false,
+            socketTransportMode: SOCKET_FORCE_POLLING ? 'polling' : 'auto',
+        });
     },
     login: async (data, navigate) => {
         console.log('[UserAuthStore] login called. data:', data);
