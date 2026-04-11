@@ -12,20 +12,14 @@ const IncomingCallModal = () => {
   const callStatus = userauthstore(state => state.callStatus);
   // const localStream = userauthstore(state => state.localStream);
 
-  console.log('IncomingCallModal incomingCall:', incomingCall);
-  console.log('callStatus:', callStatus);
-
   // console.log('answerCall:', answerCall, typeof answerCall);
   // console.log('rejectCall:', rejectCall, typeof rejectCall);
 
   if (!incomingCall || !incomingCall.signal) return null;
 
   const handleAnswer = () => {
-    console.log('[IncomingCallModal] Answer clicked');
     // Pass the PeerJS call object and caller's peerId
     answerCall(incomingCall.signal, incomingCall.from, navigate);
-    console.log('[IncomingCallModal] Navigating to /videocall');
-    // navigate('/videocall');
   };
 
   const handleReject = () => {

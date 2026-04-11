@@ -309,6 +309,17 @@ TWILIO_ACCOUNT_SID=your_twilio_account_sid
 TWILIO_AUTH_TOKEN=your_twilio_auth_token
 ```
 
+Create `client/.env` file only when frontend and backend are deployed on different origins:
+
+```env
+# Optional frontend endpoint overrides
+VITE_API_URL=https://your-api-domain.com/api
+VITE_SOCKET_URL=https://your-api-domain.com
+VITE_SOCKET_PATH=/socket.io
+VITE_PEER_URL=https://your-api-domain.com
+VITE_PEER_PATH=/peerjs
+```
+
 ### ⚠️ Important Notes:
 - **Never commit `.env` files** — They're in `.gitignore`
 - **No spaces around `=`** — `KEY=value` not `KEY = value`

@@ -1,7 +1,7 @@
 import Message from '../models/message.js';
 import User from '../models/user.js';
 import Group from '../models/group.js';
-import { getreceiversocketid, io } from '../services/socket.js';
+import { getreceiversocketids, io } from '../services/socket.js';
 
 // Send a message
 async function sendMessage(req, res) {
@@ -31,9 +31,9 @@ async function sendMessage(req, res) {
       image,
     });
 
-    const receiversocketid = getreceiversocketid(receiver);
-    if (receiversocketid) {
-      io.to(receiversocketid).emit('newMessage', newMessage);
+    const receiverSocketIds = getreceiversocketids(receiver);
+    for (const socketId of receiverSocketIds) {
+      io.to(socketId).emit('newMessage', newMessage);
     }
 
     res.status(201).json({ success: true, message: 'Message sent.', data: newMessage });
@@ -80,9 +80,9 @@ async function sendGroupMessage(req, res) {
         continue;
       }
 
-      const receiversocketid = getreceiversocketid(receiverId);
-      if (receiversocketid) {
-        io.to(receiversocketid).emit('newGroupMessage', {
+      const receiverSocketIds = getreceiversocketids(receiverId);
+      for (const socketId of receiverSocketIds) {
+        io.to(socketId).emit('newGroupMessage', {
           groupId,
           message: populatedMessage,
         });

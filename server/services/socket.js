@@ -5,9 +5,21 @@ import { PeerServer } from 'peer';
 
 const app = express();
 const server = http.createServer(app);
+
+const allowedOrigins = [
+    process.env.CLIENT_URL,
+    'http://localhost:5173',
+    'http://localhost:3000',
+].filter(Boolean);
+
 const io = new Server(server, {
     cors: {
-        origin: 'http://localhost:5173', // Use your actual client URL
+        origin: (origin, callback) => {
+            if (!origin || allowedOrigins.includes(origin)) {
+                return callback(null, true);
+            }
+            callback(null, true);
+        },
         credentials: true
     }
 });
@@ -17,21 +29,64 @@ const io = new Server(server, {
 // Only keep this startup log
 console.log(`Socket.io server created with CORS origin: ${process.env.CLIENT_URL || 'http://localhost:5173'}`);
 
-const usersocketmap = {};
+const usersocketmap = new Map();
+
+function addUserSocket(userId, socketId) {
+    if (!userId) {
+        return;
+    }
+
+    if (!usersocketmap.has(userId)) {
+        usersocketmap.set(userId, new Set());
+    }
+
+    usersocketmap.get(userId).add(socketId);
+}
+
+function removeUserSocket(userId, socketId) {
+    if (!userId) {
+        return;
+    }
+
+    const socketSet = usersocketmap.get(userId);
+    if (!socketSet) {
+        return;
+    }
+
+    socketSet.delete(socketId);
+    if (socketSet.size === 0) {
+        usersocketmap.delete(userId);
+    }
+}
+
+function getOnlineUserIds() {
+    return [...usersocketmap.keys()];
+}
+
+function getreceiversocketids(userId) {
+    const socketSet = usersocketmap.get(userId);
+    return socketSet ? [...socketSet] : [];
+}
+
+function emitToUser(userId, eventName, payload) {
+    const receiverSocketIds = getreceiversocketids(userId);
+    for (const socketId of receiverSocketIds) {
+        io.to(socketId).emit(eventName, payload);
+    }
+}
 
 io.on('connection', (socket) => {
     // Only log connection event
     // console.log('connected successfully to socket ', socket.id);
 
-    const userId = socket.handshake.query.userId;
+    const userId = typeof socket.handshake.query.userId === 'string'
+        ? socket.handshake.query.userId
+        : null;
     // Only log userId if needed for debugging
     // console.log('user id :', userId);
-    if (userId) {
-        usersocketmap[userId] = socket.id;
-        // console.log('User socket map updated:', usersocketmap);
-    }
+    addUserSocket(userId, socket.id);
 
-    io.emit('getonline', Object.keys(usersocketmap));
+    io.emit('getonline', getOnlineUserIds());
 
     // Test event handler
     socket.on('test-event', (data) => {
@@ -40,8 +95,7 @@ io.on('connection', (socket) => {
     });
 
     socket.on('call-user', (data) => {
-        // No log needed
-        io.to(usersocketmap[data.to]).emit('incoming-call', {
+        emitToUser(data.to, 'incoming-call', {
             signal: data.signal,
             from: data.from,
             name: data.name,
@@ -51,32 +105,28 @@ io.on('connection', (socket) => {
 
     // Handle call rejection
     socket.on('call-rejected', (data) => {
-        io.to(usersocketmap[data.to]).emit('call-rejected', {
+        emitToUser(data.to, 'call-rejected', {
             from: socket.id
         });
     });
 
     socket.on('answer-call', (data) => {
-        // No log needed
-        const callerSocketId = usersocketmap[data.to];
-        if (callerSocketId) {
-            io.to(callerSocketId).emit('call-answered', {
-                signal: data.signal,
-                from: data.from
-            });
-        }
+        emitToUser(data.to, 'call-answered', {
+            signal: data.signal,
+            from: data.from
+        });
     });
 
     // Handle end call
     socket.on('end-call', (data) => {
-        io.to(usersocketmap[data.to]).emit('end-call', {
+        emitToUser(data.to, 'end-call', {
             from: socket.id
         });
     });
 
     // Relay ICE candidates for WebRTC
     socket.on('ice-candidate', (data) => {
-        io.to(usersocketmap[data.to]).emit('ice-candidate', {
+        emitToUser(data.to, 'ice-candidate', {
             candidate: data.candidate,
             from: data.from
         });
@@ -192,8 +242,8 @@ io.on('connection', (socket) => {
 
     socket.on('disconnect', async () => {
         // Only log disconnect if needed
-        delete usersocketmap[userId];
-        io.emit('getonline', Object.keys(usersocketmap));
+        removeUserSocket(userId, socket.id);
+        io.emit('getonline', getOnlineUserIds());
 
         // Clean up document rooms
         const { removeUserFromDocument } = await import('./yjs-server.js');
@@ -208,12 +258,14 @@ io.on('connection', (socket) => {
 });
 
 function getreceiversocketid(userId) {
-    return usersocketmap[userId];
+    const receiverSocketIds = getreceiversocketids(userId);
+    return receiverSocketIds.length > 0 ? receiverSocketIds[0] : null;
 }
 
 export {
     app,
     server,
     io,
-    getreceiversocketid
+    getreceiversocketid,
+    getreceiversocketids,
 };

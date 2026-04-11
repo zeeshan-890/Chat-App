@@ -1,43 +1,79 @@
-import axios from 'axios';
 import Peer from 'peerjs';
-
-import axiosInstance from '../Store/AxiosInstance';
 
 let peer = null;
 let currentCall = null;
+let currentPeerId = null;
+
+const DEFAULT_ICE_SERVERS = [
+    { urls: 'stun:stun.l.google.com:19302' },
+];
+
+function normalizePath(pathValue) {
+    if (!pathValue) {
+        return '/peerjs';
+    }
+
+    const withLeadingSlash = pathValue.startsWith('/') ? pathValue : `/${pathValue}`;
+    return withLeadingSlash.replace(/\/$/, '');
+}
+
+function resolvePeerOptions() {
+    const peerUrlFromEnv = (import.meta.env.VITE_PEER_URL || '').trim();
+    const peerPathFromEnv = normalizePath((import.meta.env.VITE_PEER_PATH || '/peerjs').trim());
+
+    if (peerUrlFromEnv) {
+        const parsedUrl = new URL(peerUrlFromEnv);
+        return {
+            host: parsedUrl.hostname,
+            port: parsedUrl.port
+                ? Number(parsedUrl.port)
+                : (parsedUrl.protocol === 'https:' ? 443 : 80),
+            path: parsedUrl.pathname && parsedUrl.pathname !== '/'
+                ? normalizePath(parsedUrl.pathname)
+                : peerPathFromEnv,
+            secure: parsedUrl.protocol === 'https:',
+        };
+    }
+
+    const isProd = window.location.hostname !== 'localhost';
+    return {
+        host: isProd ? window.location.hostname : 'localhost',
+        port: isProd
+            ? (window.location.port ? Number(window.location.port) : 443)
+            : 3000,
+        path: peerPathFromEnv,
+        secure: isProd,
+    };
+}
 
 export function createPeer(id) {
     console.log('[PeerService] Creating Peer with id:', id);
 
-
-    const iceServers = []
-
-    const data = axiosInstance.get('/ice')
-        .then(response => {
-            console.log('[PeerService] ICE servers fetched:', response.data);
-            iceServers.push(...response.data.iceServers);
-            return iceServers;
-        })
-        .catch(error => {
-            console.error('[PeerService] Error fetching ICE servers:', error);
-            return [];
-        });
-
-    console.log('[PeerService] ICE servers:', iceServers.iceServers);
-
-    // Use window.location for production, localhost for dev
-    const isProd = window.location.hostname !== 'localhost';
-    peer = new Peer(id, {
-        host: isProd ? window.location.hostname : 'localhost',
-        port: isProd ? (window.location.port || 443) : 3000,
-        path: '/peerjs',
-        secure: isProd, // true for https, false for local dev
-        debug: 3, // Set to 0 for no logs, 3 for verbose
-        config: {
-            iceServers: iceServers.iceServers
+    if (peer && !peer.destroyed) {
+        if (peer.id === id && peer.open && !peer.disconnected) {
+            return peer;
         }
 
+        try {
+            peer.destroy();
+        } catch {
+            // ignore destroy failures during peer re-init
+        }
+        peer = null;
+    }
 
+    const peerOptions = resolvePeerOptions();
+    currentPeerId = id;
+
+    peer = new Peer(id, {
+        host: peerOptions.host,
+        port: peerOptions.port,
+        path: peerOptions.path,
+        secure: peerOptions.secure,
+        debug: 1,
+        config: {
+            iceServers: DEFAULT_ICE_SERVERS,
+        }
     });
 
     console.log('[PeerService] Peer created:', peer);
@@ -50,6 +86,13 @@ export function createPeer(id) {
     });
     peer.on('disconnected', () => {
         console.warn('[PeerService] PeerJS disconnected');
+        try {
+            if (peer && !peer.destroyed) {
+                peer.reconnect();
+            }
+        } catch (error) {
+            console.warn('[PeerService] Peer reconnect failed:', error);
+        }
     });
     peer.on('close', () => {
         console.warn('[PeerService] PeerJS closed');
@@ -62,9 +105,21 @@ export function getPeer() {
     return peer;
 }
 
+export function destroyPeer() {
+    if (peer && !peer.destroyed) {
+        peer.destroy();
+    }
+    currentPeerId = null;
+    peer = null;
+}
+
 export function callPeer(remoteId, stream, onStream, callerName, callerProfileImg) {
     const peer = getPeer();
-    if (!peer) throw new Error('Peer not initialized');
+    if (!peer || peer.destroyed) throw new Error('Peer not initialized');
+    if (peer.disconnected) {
+        throw new Error('Peer disconnected. Reconnecting...');
+    }
+    if (!peer.open) throw new Error('Peer is not ready yet');
     console.log('[PeerService] Calling remote peer:', remoteId, 'with stream:', stream);
     currentCall = peer.call(remoteId, stream, {
         metadata: {

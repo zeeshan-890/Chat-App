@@ -2,9 +2,13 @@ import { create } from 'zustand'
 import axiosInstance from './AxiosInstance'
 import toast from 'react-hot-toast'
 import { io } from 'socket.io-client'
-import { createPeer, closeCall } from '../services/PeerService';
+import { createPeer, closeCall, destroyPeer } from '../services/PeerService';
 
-const BASE_URl = import.meta.env.MODE === 'development' ? 'http://localhost:3000' : '/'
+const SOCKET_BASE_URL = (import.meta.env.VITE_SOCKET_URL || '').trim()
+    || (import.meta.env.MODE === 'development' ? 'http://localhost:3000' : window.location.origin);
+const SOCKET_PATH = (import.meta.env.VITE_SOCKET_PATH || '/socket.io').trim() || '/socket.io';
+
+let pendingPeerReinitTimeout = null;
 
 // jj
 
@@ -21,6 +25,7 @@ export const userauthstore = create((set, get) => ({
     isupdatinguser: false,
     islogingout: false,
     ischeckingauth: false,
+    hasCheckedAuth: false,
     sidebarusers: [],
     groups: [],
     issettingsidebaruser: false,
@@ -206,7 +211,7 @@ export const userauthstore = create((set, get) => ({
                 ringtone.preload = 'auto';
 
                 // Set source - use a simple tone file
-                ringtone.src = `/ringtone.mp3`;
+                ringtone.src = `/sounds/ringtone.mp3`;
 
                 // Save the audio element
                 set({ ringtone });
@@ -275,47 +280,66 @@ export const userauthstore = create((set, get) => ({
 
         get().startCallTimeout();
     },
-    answerCall: (callObj, fromPeerId, navigate) => {
+    answerCall: async (callObj, fromPeerId, navigate) => {
         console.log('[UserAuthStore] answerCall called. callObj:', callObj);
-        const { user, socket } = get();
-        set({
-            callStatus: 'connected',
-            call: {
-                type: 'in-call',
-                user: { _id: fromPeerId, name: callObj.metadata?.name || 'Unknown', profileImg: callObj.metadata?.profileImg || '/avatar.jpg' },
-                peerId: fromPeerId,
-                started: Date.now()
-            },
-            peerCall: callObj,
-            incomingCall: null,
-        });
-
-        // Emit answer-call event to caller
-        if (socket) {
-            socket.emit('answer-call', { to: fromPeerId, from: user?._id });
+        if (!callObj) {
+            return;
         }
 
-        navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-            .then(localStream => {
-                callObj.answer(localStream);
-                callObj.on('stream', remoteStream => {
-                    set({ remoteStream });
-                });
-                navigate('/videocall');
-                get().startCallDurationTimer();
-                get().stopCallTimeout();
-                get().stopRingtone();
-            })
-            .catch(err => {
-                toast.error('Could not access camera/microphone. Please check permissions.');
-                set({
-                    call: null,
-                    callStatus: null,
-                    peerCall: null,
-                    incomingCall: null,
-                });
-                closeCall();
+        const { user, socket, localStream } = get();
+
+        try {
+            let mediaStream = localStream;
+            if (!mediaStream) {
+                mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                set({ localStream: mediaStream });
+            }
+
+            set({
+                callStatus: 'connected',
+                call: {
+                    type: 'in-call',
+                    user: { _id: fromPeerId, name: callObj.metadata?.name || 'Unknown', profileImg: callObj.metadata?.profileImg || '/avatar.jpg' },
+                    peerId: fromPeerId,
+                    started: Date.now()
+                },
+                peerCall: callObj,
+                incomingCall: null,
             });
+
+            if (socket) {
+                socket.emit('answer-call', { to: fromPeerId, from: user?._id });
+            }
+
+            callObj.answer(mediaStream);
+            callObj.on('stream', remoteStream => {
+                set({ remoteStream });
+            });
+            callObj.on('close', () => {
+                get().endCall(fromPeerId);
+            });
+            callObj.on('error', (err) => {
+                console.error('Peer call error while answering:', err);
+                toast.error('Call connection error');
+                get().endCall(fromPeerId);
+            });
+
+            get().stopCallTimeout();
+            get().stopRingtone();
+
+            if (typeof navigate === 'function') {
+                navigate('/videocall');
+            }
+        } catch (err) {
+            toast.error('Could not access camera/microphone. Please check permissions.');
+            set({
+                call: null,
+                callStatus: null,
+                peerCall: null,
+                incomingCall: null,
+            });
+            closeCall();
+        }
     },
 
     rejectCall: (fromPeerId) => {
@@ -622,8 +646,9 @@ export const userauthstore = create((set, get) => ({
             set({ socket: null });
         }
 
-        const socket = io(BASE_URl, {
+        const socket = io(SOCKET_BASE_URL, {
             query: { userId: user._id },
+            path: SOCKET_PATH,
             reconnection: true,
             reconnectionAttempts: 10,
             reconnectionDelay: 2000,
@@ -694,7 +719,7 @@ export const userauthstore = create((set, get) => ({
             set({ isloggingin: true })
             const res = await axiosInstance.post("/user/login", data)
             if (res.status === 200) {
-                set({ user: res.data.user })
+                set({ user: res.data.user, hasCheckedAuth: true })
                 get().connectSocket()
                 get().startSocketMonitor()
                 toast.success(res.data.message)
@@ -702,7 +727,11 @@ export const userauthstore = create((set, get) => ({
             }
         }
         catch (error) {
-            toast.error(error?.response?.data?.message || "Server Error")
+            if (error?.response?.status === 404) {
+                toast.error('API endpoint not found. Set VITE_API_URL to your backend /api URL.');
+            } else {
+                toast.error(error?.response?.data?.message || "Server Error")
+            }
             console.log("error in logging in :", error)
         }
         finally {
@@ -715,7 +744,7 @@ export const userauthstore = create((set, get) => ({
             set({ isSigningup: true })
             const res = await axiosInstance.post("/user/sign-up", data)
             if (res.status === 200) {
-                set({ user: res.data.user })
+                set({ user: res.data.user, hasCheckedAuth: true })
                 get().connectSocket()
                 get().startSocketMonitor()
                 toast.success(res.data.message)
@@ -723,7 +752,11 @@ export const userauthstore = create((set, get) => ({
             }
         }
         catch (error) {
-            toast.error(error?.response?.data?.message || "Server Error")
+            if (error?.response?.status === 404) {
+                toast.error('API endpoint not found. Set VITE_API_URL to your backend /api URL.');
+            } else {
+                toast.error(error?.response?.data?.message || "Server Error")
+            }
             console.log("error in logging in :", error)
         }
         finally {
@@ -736,9 +769,15 @@ export const userauthstore = create((set, get) => ({
             set({ islogingout: true })
             const res = await axiosInstance.get("/user/logout")
             if (res.status === 200) {
-                set({ user: null })
+                set({ user: null, hasCheckedAuth: true })
                 toast.success(res.data.message)
                 get().disconnectSocket()
+                destroyPeer();
+                if (pendingPeerReinitTimeout) {
+                    clearTimeout(pendingPeerReinitTimeout);
+                    pendingPeerReinitTimeout = null;
+                }
+                set({ peer: null, peerId: null, call: null, incomingCall: null, peerCall: null, remoteStream: null, localStream: null });
                 navigate("/login")
             }
         }
@@ -780,6 +819,11 @@ export const userauthstore = create((set, get) => ({
 
     checkauth: async () => {
         console.log('[UserAuthStore] checkauth called.');
+        const { ischeckingauth, hasCheckedAuth } = get();
+        if (ischeckingauth || hasCheckedAuth) {
+            return;
+        }
+
         set({ ischeckingauth: true })
         try {
 
@@ -790,18 +834,22 @@ export const userauthstore = create((set, get) => ({
 
 
             if (res.status === 200) {
-                set({ user: res.data.user })
+                set({ user: res.data.user, hasCheckedAuth: true })
                 get().connectSocket()
                 get().startSocketMonitor()
             }
 
         }
         catch (error) {
+            set({ user: null })
+            if (error?.response?.status === 404) {
+                console.warn('checkauth endpoint not found. Configure VITE_API_URL for production.');
+            }
             console.log("error in checkauth in :", error)
 
         }
         finally {
-            set({ ischeckingauth: false })
+            set({ ischeckingauth: false, hasCheckedAuth: true })
         }
 
     },
@@ -972,21 +1020,71 @@ export const userauthstore = create((set, get) => ({
         console.log('[UserAuthStore] initPeer called. id:', id);
         const peer = createPeer(id); // from your PeerService.js
         set({ peer, peerId: id });
+
+        if (typeof peer.removeAllListeners === 'function') {
+            peer.removeAllListeners('open');
+            peer.removeAllListeners('error');
+            peer.removeAllListeners('call');
+            peer.removeAllListeners('disconnected');
+            peer.removeAllListeners('close');
+        }
+
         peer.on('open', (pid) => {
             console.log('[UserAuthStore] PeerJS open event. pid:', pid);
             set({ peerId: pid });
         });
-        peer.on('error', (err) => console.error('PeerJS error:', err));
+        const schedulePeerReinit = () => {
+            if (pendingPeerReinitTimeout) {
+                return;
+            }
+
+            pendingPeerReinitTimeout = setTimeout(() => {
+                pendingPeerReinitTimeout = null;
+                const currentUser = get().user;
+                if (!currentUser?._id) {
+                    return;
+                }
+
+                destroyPeer();
+                set({ peer: null, peerId: null, peerCall: null });
+                get().initPeer(currentUser._id);
+            }, 1200);
+        };
+
+        peer.on('error', (err) => {
+            console.error('PeerJS error:', err);
+            if (err?.type === 'network' || err?.type === 'server-error' || err?.type === 'socket-closed') {
+                schedulePeerReinit();
+            }
+        });
+
+        peer.on('disconnected', () => {
+            console.warn('[UserAuthStore] Peer disconnected. Reinitializing...');
+            schedulePeerReinit();
+        });
+
+        peer.on('close', () => {
+            console.warn('[UserAuthStore] Peer closed. Reinitializing...');
+            schedulePeerReinit();
+        });
 
         peer.on('call', (callObj) => {
             console.log('[UserAuthStore] PeerJS incoming call event:', callObj);
+            const { call } = get();
+
+            if (call) {
+                callObj.close();
+                return;
+            }
+
             set({
                 incomingCall: {
                     signal: callObj,
                     from: callObj.peer,
                     name: callObj.metadata?.name || 'Unknown',
-                    profileImg: callObj.metadata?.profileImg || '/avatar.jpg'
-                }
+                    profileImg: callObj.metadata?.profileImg || '/avatar.jpg',
+                },
+                callStatus: 'ringing',
             });
             get().playRingtone(true);
         })

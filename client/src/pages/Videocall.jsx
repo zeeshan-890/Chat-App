@@ -18,152 +18,126 @@ const Videocall = () => {
     selecteduser,
     call,
     peer,
-    peerId,
     peerCall,
     setPeerCall,
     callStatus,
     callDuration,
     remoteStream,
-    startCall,
-    answerCall: storeAnswerCall,
     endCall,
-    rejectCall,
     startCallDurationTimer,
     stopCallDurationTimer,
-    startCallTimeout,
     stopCallTimeout,
-    cleanupMediaStreams,
-    socket,
   } = userauthstore();
+
+  const isPeerOpen = Boolean(peer && peer.open);
 
   // 1. Initialize PeerJS on mount (if not already)
   useEffect(() => {
-    if (user && !peer) {
+    if (user && (!peer || peer.destroyed || peer.disconnected)) {
       userauthstore.getState().initPeer(user._id);
     }
   }, [user, peer]);
 
   // 2. Get user media on mount
   useEffect(() => {
-    if (!localStream) {
-      const timeout = setTimeout(() => {
-        navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-          .then(stream => {
-            setLocalStream(stream);
-            if (myVideoRef.current) myVideoRef.current.srcObject = stream;
-          })
-          .catch(err => {
-            setErrorMessage('Could not access camera or microphone.');
-            toast.error('Could not access camera or microphone.');
-            console.error(err);
-          });
-      }, 600); // Try 600ms or even 1000ms
-      return () => clearTimeout(timeout);
-    } else {
-      if (myVideoRef.current) myVideoRef.current.srcObject = localStream;
-    }
-  }, [localStream, setLocalStream]);
+    let isMounted = true;
 
-  // 3. Handle incoming calls
-  useEffect(() => {
-    if (!peer) return;
-    const handler = callObj => {
-      // Wait for localStream to be ready before answering
-      if (!localStream) {
-        // Wait and retry (simple version)
-        const interval = setInterval(() => {
-          if (userauthstore.getState().localStream) {
-            clearInterval(interval);
-            userauthstore.getState().answerCall(callObj, callObj.peer, userauthstore.getState().localStream);
-            callObj.on('stream', remoteStream => {
-              if (userVideoRef.current) userVideoRef.current.srcObject = remoteStream;
-            });
-          }
-        }, 100);
-        setTimeout(() => clearInterval(interval), 3000); // Give up after 3s
+    const ensureLocalStream = async () => {
+      if (localStream) {
+        if (myVideoRef.current) {
+          myVideoRef.current.srcObject = localStream;
+        }
         return;
       }
-      storeAnswerCall(callObj, callObj.peer, localStream);
-      callObj.on('stream', remoteStream => {
-        if (userVideoRef.current) userVideoRef.current.srcObject = remoteStream;
-      });
-      callObj.on('close', () => {
-        endCall();
-        toast('Call ended');
-        navigate('/');
-      });
-      callObj.on('error', err => {
-        setErrorMessage('Call error: ' + err.message);
-        toast.error('Call error: ' + err.message);
-      });
-    };
-    peer.on('call', handler);
-    return () => { peer.off('call', handler); };
-  }, [peer, localStream, storeAnswerCall, endCall, navigate]);
 
-  // 4. Outgoing call logic
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        if (!isMounted) {
+          stream.getTracks().forEach((track) => track.stop());
+          return;
+        }
+
+        setLocalStream(stream);
+        if (myVideoRef.current) {
+          myVideoRef.current.srcObject = stream;
+        }
+      } catch (err) {
+        setErrorMessage('Could not access camera or microphone.');
+        toast.error('Could not access camera or microphone.');
+        console.error(err);
+      }
+    };
+
+    ensureLocalStream();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [localStream, setLocalStream]);
+
+  // 3. Outgoing call logic
   useEffect(() => {
-    if (
-      call &&
-      call.type === 'outgoing' &&
-      selecteduser &&
-      selecteduser._id &&
-      localStream &&
-      peer &&
-      !peerCall
-    ) {
-      const callObj = callPeer(
+    if (!call || call.type !== 'outgoing' || !selecteduser?._id || !localStream || peerCall) {
+      return;
+    }
+
+    if (!peer || peer.destroyed || peer.disconnected) {
+      userauthstore.getState().initPeer(user?._id);
+      return;
+    }
+
+    if (!isPeerOpen) {
+      return;
+    }
+
+    let callObj;
+    try {
+      callObj = callPeer(
         selecteduser._id,
         localStream,
-        (remoteStream) => {
-          if (userVideoRef.current) userVideoRef.current.srcObject = remoteStream;
+        (nextRemoteStream) => {
+          if (userVideoRef.current) userVideoRef.current.srcObject = nextRemoteStream;
         },
-        user.name,
-        user.profileImg
+        user?.name,
+        user?.profileImg
       );
-      setPeerCall(callObj);
-      callObj.on('close', () => {
-        endCall();
-        // toast('Call ended');
-        navigate('/');
-      });
-      callObj.on('error', err => {
-        setErrorMessage('Call error: ' + err.message);
-        toast.error('Call error: ' + err.message);
-      });
-      startCallTimeout();
+    } catch (err) {
+      const message = err?.message || 'Could not start call. Please try again.';
+      setErrorMessage(message);
+      toast.error(message);
+      userauthstore.getState().initPeer(user?._id);
+      return;
     }
-  }, [call, selecteduser, localStream, peer, peerCall, setPeerCall, endCall, navigate, startCallTimeout, user]);
 
-  // 5. Listen for socket events (call-rejected, end-call, call-timeout)
-  useEffect(() => {
-    if (!socket) return;
-    const onRejected = () => {
-      // toast.error('Call was rejected');
-      endCall();
+    if (!callObj || typeof callObj.on !== 'function') {
+      setErrorMessage('Could not start call. Please try again.');
+      toast.error('Could not start call. Please try again.');
+      return;
+    }
+
+    setPeerCall(callObj);
+
+    const handleClose = () => {
+      endCall(selecteduser._id);
       navigate('/');
     };
-    const onEnded = () => {
-      // toast('Call ended');
-      endCall();
-      navigate('/');
+
+    const handleError = (err) => {
+      const message = err?.message || 'Call connection failed.';
+      setErrorMessage('Call error: ' + message);
+      toast.error('Call error: ' + message);
     };
-    const onTimeout = () => {
-      toast.error('Call not answered');
-      endCall();
-      navigate('/');
-    };
-    socket.on('call-rejected', onRejected);
-    socket.on('end-call', onEnded);
-    socket.on('call-timeout', onTimeout);
+
+    callObj.on('close', handleClose);
+    callObj.on('error', handleError);
+
     return () => {
-      socket.off('call-rejected', onRejected);
-      socket.off('end-call', onEnded);
-      socket.off('call-timeout', onTimeout);
+      callObj.off('close', handleClose);
+      callObj.off('error', handleError);
     };
-  }, [socket, endCall, navigate]);
+  }, [call, selecteduser, localStream, peer, isPeerOpen, peerCall, setPeerCall, endCall, navigate, user]);
 
-  // 6. Start/stop call duration timer
+  // 4. Start/stop call duration timer
   useEffect(() => {
     if (callStatus === 'connected') {
       startCallDurationTimer();
@@ -174,9 +148,9 @@ const Videocall = () => {
       stopCallTimeout();
       navigate('/');
     }
-  }, [callStatus, call, startCallDurationTimer, stopCallDurationTimer, stopCallTimeout]);
+  }, [callStatus, call, startCallDurationTimer, stopCallDurationTimer, stopCallTimeout, navigate]);
 
-  // 7. Cleanup on unmount
+  // 5. Cleanup on unmount
   useEffect(() => {
     return () => {
       // Only cleanup if navigating away from /videocall, not remounting
@@ -187,14 +161,15 @@ const Videocall = () => {
       if (userVideoRef.current) userVideoRef.current.srcObject = null;
     };
   }, []);
-  // 8. Sync remoteStream to userVideoRef
+
+  // 6. Sync remoteStream to userVideoRef
   useEffect(() => {
     if (userVideoRef.current && remoteStream) {
       userVideoRef.current.srcObject = remoteStream;
     }
   }, [remoteStream]);
 
-  // 9. End call handler
+  // 7. End call handler
   const handleEndCall = () => {
     if (call && call.user && call.user._id) {
       endCall(call.user._id);
@@ -202,7 +177,7 @@ const Videocall = () => {
     navigate('/');
   };
 
-  // 10. Format timer
+  // 8. Format timer
   const formatTime = (seconds) => {
     const m = Math.floor(seconds / 60).toString().padStart(2, '0');
     const s = (seconds % 60).toString().padStart(2, '0');

@@ -5,14 +5,15 @@ import { useEffect } from "react";
 import Loader from './Loader';
 
 const ProtectedRoute = ({ children }) => {
-    const { ischeckingauth, checkauth } = userauthstore();
+    const { ischeckingauth, hasCheckedAuth, checkauth } = userauthstore();
 
     useEffect(() => {
+        if (!hasCheckedAuth) {
+            checkauth();
+        }
+    }, [hasCheckedAuth, checkauth]);
 
-        checkauth(); // run on load
-    }, []);
-
-    if (ischeckingauth) {
+    if (ischeckingauth || !hasCheckedAuth) {
         return <Loader />;
     }
 
