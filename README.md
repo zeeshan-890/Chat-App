@@ -9,7 +9,7 @@ A production-ready full‑stack MERN + Socket.IO + WebRTC application providing 
 - **Profile Management** — Cloudinary-powered image upload for avatars
 - **Responsive Design** — Mobile-friendly React (Vite) frontend with protected routes
 
-🌐 **Live Demo:** [https://chat-videocall.app.viralix.dev](https://chat-videocall.app.viralix.dev)
+🌐 **Live Demo:** [https://converza.app.zeeshan-abbas.tech](https://converza.app.zeeshan-abbas.tech)
 
 ---
 
